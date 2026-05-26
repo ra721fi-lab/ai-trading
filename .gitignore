@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+web_stage/
+
+# Databases & Local state files
+*.sqlite
+*.sqlite3
+*.db
+backend/data/
+backend/trading_tools.sqlite
+
+# IDEs & Editor configurations
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment settings
+.env
+.env*.local
+
+# Production Build outputs
+dist/
+build/
+out/
