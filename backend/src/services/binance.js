@@ -1,4 +1,8 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args)).catch(() => {}); // Fallback handler
+const nativeFetch = typeof fetch !== 'undefined' ? fetch : null;
+const fetchFn = (...args) => {
+  if (nativeFetch) return nativeFetch(...args);
+  return import('node-fetch').then(({default: f}) => f(...args)).catch(() => {});
+};
 require('dotenv').config();
 
 // Standard crypto pairs we scan and support
@@ -10,6 +14,7 @@ const POPULAR_PAIRS = [
 
 /**
  * Service to interface with Binance API for market details
+ * Automatically falls back to Bybit (api.bytick.com) if Binance is blocked or timed out
  */
 class BinanceService {
   constructor() {
@@ -21,11 +26,11 @@ class BinanceService {
    */
   async _get(endpoint) {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, { signal: AbortSignal.timeout(5000) });
+      const response = await fetchFn(`${this.baseUrl}${endpoint}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       return await response.json();
     } catch (err) {
-      // console.warn(`Binance API Error on ${endpoint}: ${err.message}. Using fallback mock data.`);
+      // console.warn(`Binance API Error on ${endpoint}: ${err.message}`);
       return null;
     }
   }
@@ -34,6 +39,7 @@ class BinanceService {
    * Fetch 24-hour ticker statistics for scanned pairs
    */
   async getMarketTickers() {
+    // 1. Try Binance API first
     const data = await this._get('/ticker/24hr');
     
     if (data && Array.isArray(data)) {
@@ -52,7 +58,40 @@ class BinanceService {
         }));
     }
 
-    // Return smart fallback mock data if Binance API is blocked or offline
+    // 2. Fallback to Bybit (api.bytick.com is officially unblocked in Indonesia)
+    try {
+      const response = await fetchFn('https://api.bytick.com/v5/market/tickers?category=linear', { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined });
+      if (response.ok) {
+        const json = await response.json();
+        if (json && json.retCode === 0 && json.result && Array.isArray(json.result.list)) {
+          const bybitList = json.result.list.filter(item => POPULAR_PAIRS.includes(item.symbol));
+          if (bybitList.length > 0) {
+            return bybitList.map(item => {
+              const price = parseFloat(item.lastPrice);
+              const changePercent = parseFloat(item.price24hPcnt) * 100; // convert e.g. 0.00766 to 0.766%
+              const high = parseFloat(item.highPrice24h);
+              const low = parseFloat(item.lowPrice24h);
+              const volume = parseFloat(item.volume24h);
+              const quoteVolume = parseFloat(item.turnover24h);
+              return {
+                symbol: item.symbol,
+                price,
+                changePercent,
+                high,
+                low,
+                volume,
+                quoteVolume,
+                count: 12000
+              };
+            });
+          }
+        }
+      }
+    } catch (bybitErr) {
+      // console.warn('Bybit API Fallback Error:', bybitErr.message);
+    }
+
+    // 3. Smart fallback simulated data if all networks are fully offline
     return POPULAR_PAIRS.map((symbol, idx) => {
       const basePrices = {
         BTCUSDT: 77250, ETHUSDT: 3850, SOLUSDT: 185, BNBUSDT: 620,
@@ -83,6 +122,7 @@ class BinanceService {
    * @param {number} limit - number of candles (default 100)
    */
   async getKlines(symbol = 'BTCUSDT', interval = '15m', limit = 100) {
+    // 1. Try Binance API first
     const data = await this._get(`/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
     
     if (data && Array.isArray(data)) {
@@ -97,7 +137,34 @@ class BinanceService {
       }));
     }
 
-    // Fallback Mock Candlesticks Generator for Offline Dev
+    // 2. Fallback to Bybit (api.bytick.com)
+    try {
+      const bybitInterval = this._getBybitInterval(interval);
+      const url = `https://api.bytick.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
+      const response = await fetchFn(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined });
+      if (response.ok) {
+        const json = await response.json();
+        if (json && json.retCode === 0 && json.result && Array.isArray(json.result.list)) {
+          const intervalMs = this._getIntervalMs(interval);
+          const candles = json.result.list.map(item => ({
+            time: parseInt(item[0]), // open time
+            open: parseFloat(item[1]),
+            high: parseFloat(item[2]),
+            low: parseFloat(item[3]),
+            close: parseFloat(item[4]),
+            volume: parseFloat(item[5]),
+            closeTime: parseInt(item[0]) + intervalMs - 1
+          }));
+          // Bybit returns newest first, so we reverse to match Binance chronological (oldest-first) sorting
+          candles.reverse();
+          return candles;
+        }
+      }
+    } catch (bybitErr) {
+      // console.warn(`Bybit klines API Error for ${symbol}:`, bybitErr.message);
+    }
+
+    // 3. Fallback Mock Candlesticks Generator for Offline Dev
     const now = Date.now();
     const intervalMs = this._getIntervalMs(interval);
     const candles = [];
@@ -139,6 +206,22 @@ class BinanceService {
       case 'w': return amount * 7 * 24 * 60 * 60 * 1000;
       default: return 15 * 60 * 1000;
     }
+  }
+
+  /**
+   * Helper to convert Binance interval to Bybit interval
+   */
+  _getBybitInterval(binanceInterval) {
+    const match = binanceInterval.match(/^(\d+)([mhdwM])$/);
+    if (!match) return '15';
+    const val = parseInt(match[1]);
+    const unit = match[2];
+    if (unit === 'm') return String(val);
+    if (unit === 'h') return String(val * 60);
+    if (unit === 'd') return 'D';
+    if (unit === 'w') return 'W';
+    if (unit === 'M') return 'M';
+    return '15';
   }
 }
 
