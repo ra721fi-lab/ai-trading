@@ -186,3 +186,113 @@
   left: 100%;
   top: 100%;
 }
+
+/* Print Stylesheet for A4 Layout Audit PDF */
+@media print {
+  /* Remove dark theme backgrounds, grids, sidebars, buttons, etc. */
+  body, html {
+    background: #ffffff !important;
+    color: #1a202c !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Hide sidebar navigation, control buttons, audio player button, background animations */
+  .no-print, 
+  nav, 
+  aside, 
+  button, 
+  input, 
+  select, 
+  textarea,
+  .sidebar,
+  .topbar,
+  .header-actions,
+  .cyber-grid,
+  .glow-blue, 
+  .glow-purple, 
+  .glow-green, 
+  .glow-magenta,
+  .bg-gradient-to-r,
+  .bg-gradient-to-b {
+    display: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image: none !important;
+  }
+
+  /* Make sure the main printable element takes the whole width */
+  .print-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1cm !important;
+    background: white !important;
+    color: black !important;
+    display: block !important;
+  }
+
+  /* Redefine card containers for clean high-contrast presentation */
+  .glassmorphism, .glassmorphism-purple {
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    color: #1a202c !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    padding: 24px !important;
+  }
+
+  /* Text colors for print */
+  h1, h2, h3, h4, h5, h6 {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  span, p, li, td, th {
+    color: #334155 !important;
+  }
+
+  .text-slate-100, .text-slate-200, .text-slate-300 {
+    color: #1e293b !important;
+  }
+
+  .text-cyan-400, .text-purple-400, .text-emerald-400, .text-pink-400 {
+    color: #0f172a !important;
+    border-color: #cbd5e0 !important;
+  }
+
+  .bg-slate-950, .bg-slate-950\/60, .bg-slate-950\/80 {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e0 !important;
+    color: #0f172a !important;
+  }
+
+  /* Highlight grids */
+  .grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 15px !important;
+  }
+
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Header banner specifically for print */
+  .print-header {
+    display: block !important;
+    text-align: center !important;
+    border-bottom: 2px solid #0f172a !important;
+    padding-bottom: 15px !important;
+    margin-bottom: 30px !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+}
+

@@ -4,7 +4,7 @@ import {
   TrendingUp, Activity, Terminal, BookOpen, BarChart3, Settings, 
   User, Key, Mail, LogOut, Shield, Compass, Search, Filter, 
   CheckCircle2, AlertTriangle, Play, HelpCircle, Bell, Heart,
-  Volume2, RefreshCw, Send, Sparkles, Smile, MessageSquare, DollarSign, Calendar
+  Volume2, RefreshCw, Send, Sparkles, Smile, MessageSquare, DollarSign, Calendar, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -458,7 +458,16 @@ function MarketScanner() {
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <div>
-                      <h3 className="text-lg font-bold font-tech text-slate-100">{item.symbol}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold font-tech text-slate-100">{item.symbol}</h3>
+                        <span className={`text-[8px] px-1 rounded font-tech font-bold ${
+                          idx % 3 === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                          idx % 3 === 1 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                          'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        }`}>
+                          {idx % 3 === 0 ? 'BINANCE' : idx % 3 === 1 ? 'BYBIT' : 'OKX'}
+                        </span>
+                      </div>
                       <span className="text-[10px] text-cyan-300/40 font-tech">Vol: ${(item.volume / 1000000).toFixed(1)}M</span>
                     </div>
                     <span className={`px-2.5 py-1 rounded text-xs font-tech font-bold ${
@@ -730,6 +739,50 @@ function TradingJournal() {
   const [exitEmotion, setExitEmotion] = useState('Calm');
   const [mistakes, setMistakes] = useState([]);
 
+  // Monthly Calendar Grid State and Helpers
+  const [calDate, setCalDate] = useState(new Date());
+
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+
+  const monthNames = [
+    'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
+    'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+  ];
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+
+  const handlePrevMonth = () => {
+    setCalDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCalDate(new Date(year, month + 1, 1));
+  };
+
+  const getDayStats = (dayNum) => {
+    const dayTrades = trades.filter(t => {
+      const d = new Date(t.createdAt);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === dayNum;
+    });
+
+    if (dayTrades.length === 0) return null;
+
+    const isOpen = dayTrades.some(t => t.status === 'OPEN');
+    const closedTrades = dayTrades.filter(t => t.status === 'CLOSED');
+    const netPnL = closedTrades.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+    const hasClosed = closedTrades.length > 0;
+
+    return {
+      count: dayTrades.length,
+      isOpen,
+      hasClosed,
+      netPnL,
+      trades: dayTrades
+    };
+  };
+
   const handleOpen = async (e) => {
     e.preventDefault();
     try {
@@ -777,25 +830,100 @@ function TradingJournal() {
 
   return (
     <div className="space-y-6">
-      {/* Dynamic Visual Win/Loss calendar grid (last 15 days) */}
-      <div className="glassmorphism rounded-xl p-5 border-neon-purple">
-        <h3 className="text-sm font-bold font-tech text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-          <Calendar className="w-5 h-5" /> RECENT JOURNAL HISTORY TIMELINE
-        </h3>
-        <div className="flex flex-wrap gap-2.5">
-          {trades.slice(0, 15).reverse().map((t, idx) => {
-            const isClosed = t.status === 'CLOSED';
-            const isWin = isClosed && t.profitLoss > 0;
+      {/* Monthly Trading Win/Loss Calendar Grid */}
+      <div className="glassmorphism rounded-xl p-5 border-neon-purple space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <h3 className="text-sm font-bold font-tech text-purple-400 uppercase tracking-widest flex items-center gap-2">
+            <Calendar className="w-5 h-5 animate-pulse" /> MONTHLY JOURNAL PERFORMANCE GRID
+          </h3>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handlePrevMonth}
+              className="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 border border-purple-500/20 text-purple-300 hover:text-purple-200 rounded font-tech text-[10px] cursor-pointer transition-all uppercase tracking-wider"
+            >
+              &lt; Prev
+            </button>
+            <span className="font-tech font-bold text-slate-200 text-xs tracking-widest min-w-[120px] text-center border-x border-purple-500/25 px-3">
+              {monthNames[month]} {year}
+            </span>
+            <button 
+              onClick={handleNextMonth}
+              className="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 border border-purple-500/20 text-purple-300 hover:text-purple-200 rounded font-tech text-[10px] cursor-pointer transition-all uppercase tracking-wider"
+            >
+              Next &gt;
+            </button>
+          </div>
+        </div>
+
+        {/* Days of Week Header */}
+        <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-tech font-bold text-purple-300/60 uppercase tracking-wider border-b border-purple-500/10 pb-1.5">
+          <div>Mon</div>
+          <div>Tue</div>
+          <div>Wed</div>
+          <div>Thu</div>
+          <div>Fri</div>
+          <div>Sat</div>
+          <div>Sun</div>
+        </div>
+
+        {/* Days Grid */}
+        <div className="grid grid-cols-7 gap-2">
+          {/* Empty cells before the start day of month */}
+          {Array(startDayIndex).fill(null).map((_, idx) => (
+            <div key={`empty-${idx}`} className="aspect-square bg-slate-950/5 border border-cyan-500/0 rounded-lg opacity-20" />
+          ))}
+
+          {/* Actual day cells */}
+          {Array(daysInMonth).fill(null).map((_, idx) => {
+            const dayNum = idx + 1;
+            const stats = getDayStats(dayNum);
+            
+            let cellStyle = "bg-slate-950/20 border-cyan-500/5 text-slate-500 hover:border-cyan-500/25";
+            let pnlLabel = null;
+
+            if (stats) {
+              if (stats.isOpen) {
+                cellStyle = "bg-cyan-950/20 border-cyan-500 text-cyan-400 animate-pulse glow-blue font-bold";
+                pnlLabel = <span className="text-[7px] block font-tech uppercase tracking-tighter mt-1 bg-cyan-500/10 px-1 rounded">OPEN</span>;
+              } else if (stats.hasClosed) {
+                if (stats.netPnL > 0) {
+                  cellStyle = "bg-emerald-950/40 border-emerald-500 text-emerald-400 glow-green font-bold";
+                  pnlLabel = <span className="text-[8px] block font-tech mt-1 bg-emerald-500/10 px-1 rounded">+${stats.netPnL.toFixed(1)}</span>;
+                } else if (stats.netPnL < 0) {
+                  cellStyle = "bg-rose-950/40 border-rose-500 text-rose-400 glow-magenta font-bold";
+                  pnlLabel = <span className="text-[8px] block font-tech mt-1 bg-rose-500/10 px-1 rounded">-${Math.abs(stats.netPnL).toFixed(1)}</span>;
+                } else {
+                  cellStyle = "bg-slate-900 border-slate-600 text-slate-300 font-bold";
+                  pnlLabel = <span className="text-[8px] block font-tech mt-1 bg-slate-500/10 px-1 rounded">$0</span>;
+                }
+              }
+            }
+
             return (
               <motion.div
-                key={idx}
-                whileHover={{ scale: 1.15 }}
-                className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold font-tech text-xs border ${
-                  !isClosed ? 'bg-slate-950 border-cyan-500/30 text-cyan-400 animate-pulse' :
-                  isWin ? 'bg-emerald-950/40 border-emerald-500 text-emerald-400 glow-green' : 'bg-rose-950/40 border-rose-500 text-rose-400 glow-magenta'
-                }`}
+                key={`day-${dayNum}`}
+                whileHover={{ scale: 1.08 }}
+                className={`aspect-square rounded-lg flex flex-col items-center justify-center border text-xs relative cursor-pointer group ${cellStyle}`}
               >
-                {t.pair.substring(0, 3)}
+                <span className="font-tech text-xs">{dayNum}</span>
+                {pnlLabel}
+
+                {/* Hover Tooltip showing details */}
+                {stats && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-3 rounded-xl bg-slate-950/95 border border-purple-500/40 text-[10px] font-tech text-slate-200 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-30 shadow-2xl leading-relaxed whitespace-normal text-left shadow-purple-500/10">
+                    <p className="font-bold text-purple-300 uppercase tracking-widest border-b border-purple-500/10 pb-1 mb-1 flex justify-between items-center">
+                      <span>Detail Tanggal {dayNum}</span>
+                      <span className="text-[8px] text-slate-400 font-light">{monthNames[month]} {year}</span>
+                    </p>
+                    <p className="mt-1">Total Posisi: <span className="font-bold text-slate-100">{stats.count}</span></p>
+                    {stats.hasClosed && (
+                      <p>Net PnL Hari Ini: <span className={`font-bold ${stats.netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {stats.netPnL >= 0 ? '+' : ''}${stats.netPnL.toFixed(2)}
+                      </span></p>
+                    )}
+                    {stats.isOpen && <p className="text-cyan-400 font-bold animate-pulse uppercase tracking-wider mt-1 flex items-center gap-1">● POSISI AKTIF OPEN</p>}
+                  </div>
+                )}
               </motion.div>
             );
           })}
@@ -1079,7 +1207,17 @@ function AIEvaluator() {
   const { evalData, speakAI, loadEvaluation, loading } = useContext(AppContext);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print-area">
+      {/* Print-only dossier header */}
+      <div className="hidden print-header">
+        <h1 className="text-2xl font-bold uppercase tracking-wider text-slate-900">AI TRADING AUDIT REPORT DOSSIER</h1>
+        <p className="text-xs text-slate-500 mt-1">Generated by Rafi AI Trading Assistant • Performance & Discipline Audit Review</p>
+        <div className="text-[10px] text-slate-400 mt-2 flex justify-between px-4 border-t border-b border-slate-200 py-1">
+          <span>Date: {new Date().toLocaleString()}</span>
+          <span>Trader ID: RAFI_PRO_TRADER_001</span>
+          <span>Platform: Tools AI Trading by Rafi</span>
+        </div>
+      </div>
       {/* Audit Stats Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glassmorphism rounded-xl p-5 border-neon-blue flex items-center justify-between">
@@ -1125,7 +1263,7 @@ function AIEvaluator() {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <button
               onClick={loadEvaluation}
               disabled={loading}
@@ -1133,12 +1271,20 @@ function AIEvaluator() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Run AI Diagnostic Audit
             </button>
-            <button
-              onClick={() => speakAI(evalData?.mentorFeedback || "Jaga konsistensi setup.")}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-2 shadow-lg"
-            >
-              <Volume2 className="w-4 h-4 shrink-0" /> Play Voice Speech
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => speakAI(evalData?.mentorFeedback || "Jaga konsistensi setup.")}
+                className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-2 shadow-lg"
+              >
+                <Volume2 className="w-4 h-4 shrink-0" /> Play Voice
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-slate-100 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-2 shadow-lg shadow-purple-500/25"
+              >
+                <Download className="w-4 h-4 shrink-0" /> Export PDF
+              </button>
+            </div>
           </div>
         </div>
 
