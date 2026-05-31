@@ -525,4 +525,36 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
+// Test Telegram integration
+router.post('/settings/test-telegram', authenticateToken, async (req, res) => {
+  try {
+    const { telegramToken, telegramChatId } = req.body;
+    if (!telegramToken || !telegramChatId) {
+      return res.status(400).json({ error: 'Token Bot dan Chat ID harus diisi untuk melakukan tes.' });
+    }
+
+    const testSignal = {
+      symbol: 'BTCUSDT (TEST SIGNAL)',
+      recommendedAction: 'BUY',
+      price: 74250.00,
+      confidenceScore: 99,
+      tags: ['BULLISH_ORDER_BLOCK', 'RSI_OVERSOLD'],
+      indicators: {
+        rsi: 30.5,
+        support: 73500.00,
+        resistance: 75000.00
+      }
+    };
+
+    const result = await notifierService.sendTelegramAlert(telegramToken, telegramChatId, testSignal);
+    if (result.success) {
+      res.status(200).json({ message: 'Notifikasi tes berhasil dikirim! Silakan periksa Telegram Anda.' });
+    } else {
+      res.status(500).json({ error: `Gagal mengirim: ${result.data?.description || result.error || 'Terjadi kesalahan'}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

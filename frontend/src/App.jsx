@@ -1782,9 +1782,8 @@ function PaperTradingTerminal() {
 
 // ==========================================
 // 7. gamified DAILY MISSIONS & SETTINGS
-// ==========================================
 function SettingsTab() {
-  const { settings, saveSettings, user } = useContext(AppContext);
+  const { settings, saveSettings, testTelegram, user } = useContext(AppContext);
   const [telegramToken, setTelegramToken] = useState(settings?.telegramToken || '');
   const [telegramChatId, setTelegramChatId] = useState(settings?.telegramChatId || '');
   const [discordWebhook, setDiscordWebhook] = useState(settings?.discordWebhook || '');
@@ -1804,6 +1803,22 @@ function SettingsTab() {
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       alert('Gagal menyimpan pengaturan');
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    if (!telegramToken || !telegramChatId) {
+      alert('Masukkan Token Bot dan Chat ID terlebih dahulu untuk mencoba tes!');
+      return;
+    }
+    try {
+      setMessage('Sedang mengirim notifikasi tes ke Telegram Anda...');
+      const res = await testTelegram(telegramToken, telegramChatId);
+      setMessage(res.message || 'Notifikasi tes berhasil dikirim!');
+      setTimeout(() => setMessage(null), 4000);
+    } catch (err) {
+      alert(`Gagal mengirim tes: ${err.error || err.message || 'Terjadi kesalahan'}`);
+      setMessage(null);
     }
   };
 
@@ -1883,12 +1898,22 @@ function SettingsTab() {
             />
           </div>
 
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-400 border border-cyan-500/40 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:shadow-lg"
-          >
-            Save Credentials
-          </button>
+          <div className="flex flex-wrap gap-4 pt-2">
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-400 border border-cyan-500/40 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:shadow-lg"
+            >
+              Save Credentials
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTestTelegram}
+              className="px-6 py-2.5 bg-purple-500/25 hover:bg-purple-500/35 text-purple-400 border border-purple-500/40 font-bold font-tech text-xs uppercase rounded-lg cursor-pointer transition-all hover:shadow-lg"
+            >
+              Test Telegram Connection
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -654,6 +654,21 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const testTelegram = async (telegramToken, telegramChatId) => {
+    try {
+      if (token) {
+        return await _fetch('/settings/test-telegram', {
+          method: 'POST',
+          body: JSON.stringify({ telegramToken, telegramChatId })
+        });
+      } else {
+        throw new Error('User harus login untuk mengirim notifikasi tes.');
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
   // RESET virtual balance
   const resetBalance = async (amount) => {
     try {
@@ -716,7 +731,7 @@ export const AppProvider = ({ children }) => {
       openTrade, closeTrade, deleteTrade,
       missions,
       completeMission,
-      settings, saveSettings,
+      settings, saveSettings, testTelegram,
       evalData, loadEvaluation,
       scannerResults, runLiveScanner,
       runBacktestSim,
