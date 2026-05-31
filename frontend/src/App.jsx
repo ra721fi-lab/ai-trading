@@ -306,7 +306,7 @@ function TerminalDashboard() {
 // 2. AI MARKET SCANNER
 // ==========================================
 function MarketScanner() {
-  const { scannerResults, runLiveScanner, loading } = useContext(AppContext);
+  const { scannerResults, runLiveScanner, loading, t } = useContext(AppContext);
   const [filterRsi, setFilterRsi] = useState('');
   const [filterAction, setFilterAction] = useState('ALL');
   
