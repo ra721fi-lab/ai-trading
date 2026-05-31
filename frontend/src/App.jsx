@@ -1899,13 +1899,13 @@ function SettingsTab() {
 // MAIN DASHBOARD LAYOUT SHELL
 // ==========================================
 function TerminalShell() {
-  const { user, logoutUser, activeTab, setActiveTab } = useContext(AppContext);
+  const { user, logoutUser, activeTab, setActiveTab, language, setLanguage, t } = useContext(AppContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const { sendChatMessage, isVoiceActive } = useContext(AppContext);
   const [chatLog, setChatLog] = useState([
-    { role: 'assistant', text: 'Halo Rafi! Ada yang ingin ditanyakan seputar analisis indikator koin potensial atau kebiasaan buruk trading Anda hari ini?' }
+    { role: 'assistant', text: language === 'en' ? 'Hello Rafi! Anything you want to ask about potential coin indicators or trading habits today?' : 'Halo Rafi! Ada yang ingin ditanyakan seputar analisis indikator koin potensial atau kebiasaan buruk trading Anda hari ini?' }
   ]);
 
   const handleSendChat = async (e) => {
@@ -1918,18 +1918,18 @@ function TerminalShell() {
       const response = await sendChatMessage(msg);
       setChatLog(prev => [...prev, { role: 'assistant', text: response }]);
     } catch (err) {
-      setChatLog(prev => [...prev, { role: 'assistant', text: 'Koneksi AI assistant terputus.' }]);
+      setChatLog(prev => [...prev, { role: 'assistant', text: language === 'en' ? 'AI assistant disconnected.' : 'Koneksi AI assistant terputus.' }]);
     }
   };
 
   const navItems = [
-    { id: 'dashboard', label: 'Terminal Terminal', icon: Terminal },
-    { id: 'scanner', label: 'AI Scanner', icon: Search },
-    { id: 'strategy', label: 'Strategy Builder', icon: Compass },
-    { id: 'journal', label: 'Journal & History', icon: BookOpen },
-    { id: 'evaluation', label: 'AI Evaluator', icon: BarChart3 },
-    { id: 'paper-trading', label: 'Paper & Sim', icon: Play },
-    { id: 'settings', label: 'Integrations settings', icon: Settings },
+    { id: 'dashboard', label: t('dashboard'), icon: Terminal },
+    { id: 'scanner', label: t('scanner'), icon: Search },
+    { id: 'strategy', label: t('strategy'), icon: Compass },
+    { id: 'journal', label: t('journal'), icon: BookOpen },
+    { id: 'evaluation', label: t('evaluator'), icon: BarChart3 },
+    { id: 'paper-trading', label: t('backtest'), icon: Play },
+    { id: 'settings', label: t('settings'), icon: Settings },
   ];
 
   return (
@@ -1947,7 +1947,7 @@ function TerminalShell() {
             </div>
             <div>
               <h2 className="text-md font-bold font-tech text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 uppercase">
-                Tools AI Trading
+                {t('appName')}
               </h2>
               <span className="text-[9px] text-cyan-300/40 font-tech">BY RAFI • V1.0.0 PRO</span>
             </div>
@@ -1974,9 +1974,29 @@ function TerminalShell() {
           </nav>
         </div>
 
-        {/* User Account panel */}
+        {/* Language & User Account panel */}
         <div className="p-4 border-t border-cyan-500/10 space-y-3.5">
-          <div className="flex items-center justify-between">
+          {/* Quick Language Selector */}
+          <div className="flex items-center justify-between px-2 text-[10px] font-tech text-cyan-300/40 uppercase font-bold tracking-wider">
+            <span>{t('changeLanguage')}</span>
+            <div className="flex gap-1.5 bg-slate-950/80 border border-cyan-500/15 rounded px-1.5 py-0.5">
+              <button 
+                onClick={() => setLanguage('id')} 
+                className={`cursor-pointer transition-all ${language === 'id' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
+              >
+                ID
+              </button>
+              <span className="text-cyan-500/10">|</span>
+              <button 
+                onClick={() => setLanguage('en')} 
+                className={`cursor-pointer transition-all ${language === 'en' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
+              >
+                EN
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-cyan-500/5 pt-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-xs font-tech text-cyan-400 font-bold uppercase">
                 {user?.username?.substring(0, 2) || 'RF'}

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
+import { translations } from './translations';
 
 export const AppContext = createContext();
 
@@ -12,6 +13,16 @@ const WS_BASE = isLocal
 
 export const AppProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('rafi_trading_token') || null);
+  const [language, setLanguage] = useState(localStorage.getItem('rafi_trading_lang') || 'id');
+
+  useEffect(() => {
+    localStorage.setItem('rafi_trading_lang', language);
+  }, [language]);
+
+  const t = (key) => {
+    return translations[language]?.[key] || translations['id']?.[key] || key;
+  };
+
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('rafi_trading_user')) || null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
@@ -715,7 +726,8 @@ export const AppProvider = ({ children }) => {
       speakAI,
       isVoiceActive,
       registerUser,
-      loginUser
+      loginUser,
+      language, setLanguage, t
     }}>
       {children}
     </AppContext.Provider>
