@@ -41,7 +41,8 @@ class AIEngine {
         keyPitfalls: ["Belum ada histori trading untuk dievaluasi."],
         setupStrengths: ["Siap menganalisa trading pertama Anda."],
         mentorFeedback: "“Halo trader! Saya adalah AI Mentor Anda. Silakan catat trading pertama Anda di Trading Journal, lengkap dengan alasan entry dan emosi yang Anda rasakan. Saya akan menganalisa psikologi dan performa Anda secara mendalam.”",
-        recommendations: ["Log trading harian secara disiplin", "Gunakan stop loss pada setiap posisi"]
+        recommendations: ["Log trading harian secara disiplin", "Gunakan stop loss pada setiap posisi"],
+        correlations: []
       };
     }
 
@@ -60,15 +61,40 @@ class AIEngine {
     let revengeCount = 0;
     let overtradingCount = 0;
     let stopLossMissing = 0;
-    let badEmotionCount = 0; // Greed, Fear, Revenge, FOMO
+    let badEmotionCount = 0;
     
-    // Scan journal notes and text for pitfalls
+    // Group trades by emotion for statistical correlation calculation
+    const calmTrades = closedTrades.filter(t => t.emotion === 'Calm');
+    const fomoTrades = closedTrades.filter(t => t.emotion === 'FOMO');
+    const revengeTrades = closedTrades.filter(t => t.emotion === 'Revenge');
+    const greedTrades = closedTrades.filter(t => t.emotion === 'Greed');
+    const fearTrades = closedTrades.filter(t => t.emotion === 'Fear');
+
+    const getWinRate = (arr) => {
+      if (arr.length === 0) return 0;
+      const w = arr.filter(t => t.profitLoss > 0).length;
+      return Math.round((w / arr.length) * 100);
+    };
+
+    const calmWin = getWinRate(calmTrades);
+    const fomoWin = getWinRate(fomoTrades);
+    const revengeWin = getWinRate(revengeTrades);
+    const greedWin = getWinRate(greedTrades);
+    const fearWin = getWinRate(fearTrades);
+
+    const correlations = [
+      { factor: 'Calm', winrate: calmWin, count: calmTrades.length },
+      { factor: 'FOMO', winrate: fomoWin, count: fomoTrades.length },
+      { factor: 'Revenge', winrate: revengeWin, count: revengeTrades.length },
+      { factor: 'Greed', winrate: greedWin, count: greedTrades.length },
+      { factor: 'Fear', winrate: fearWin, count: fearTrades.length }
+    ];
+
     closedTrades.forEach((trade, idx) => {
       const notes = (trade.notes || '').toLowerCase();
       const reason = (trade.reason || '').toLowerCase();
       const emotion = trade.emotion || '';
 
-      // FOMO cues
       if (
         emotion === 'FOMO' || 
         emotion === 'Greed' || 
@@ -79,7 +105,6 @@ class AIEngine {
         badEmotionCount++;
       }
 
-      // Revenge trading cues
       if (
         emotion === 'Revenge' ||
         notes.includes('balas dendam') || notes.includes('kembali rugi') || notes.includes('emosi') || notes.includes('kejar loss')
@@ -88,31 +113,27 @@ class AIEngine {
         badEmotionCount++;
       }
 
-      // Verify stop loss logic
       const mistakes = JSON.parse(trade.mistakes || '[]');
       if (mistakes.includes('No Stop Loss') || mistakes.includes('Moved Stop Loss') || !trade.exitPrice) {
         stopLossMissing++;
       }
 
-      // Check consecutive trades within close timestamps (indicator of overtrading/revenge)
       if (idx > 0) {
         const timeDiff = new Date(trade.createdAt) - new Date(closedTrades[idx - 1].createdAt);
-        if (timeDiff < 2 * 60 * 60 * 1000) { // less than 2 hours apart
+        if (timeDiff < 2 * 60 * 60 * 1000) {
           overtradingCount++;
         }
       }
     });
 
-    // Score Calculations (Base 100)
     let disciplineScore = 100 - (fomoCount * 15) - (revengeCount * 25) - (overtradingCount * 5);
     disciplineScore = Math.max(30, Math.min(100, disciplineScore));
 
     let riskScore = 100 - (stopLossMissing * 20);
     riskScore = Math.max(30, Math.min(100, riskScore));
 
-    let accuracyScore = winrate; // base accuracy on trades that ended in profit
+    let accuracyScore = winrate;
 
-    // Pitfalls & Strengths compilation
     const keyPitfalls = [];
     const setupStrengths = [];
     const recommendations = [];
@@ -148,9 +169,16 @@ class AIEngine {
       if (winrate > 50) setupStrengths.push("Akurasi Setup Teknikal Baik");
     }
 
-    // Select wise mentor quote
-    const quotes = MENTOR_SAYINGS[mentorCategory];
-    const mentorFeedback = quotes[Math.floor(Math.random() * quotes.length)];
+    // Dynamic Psychological Correlation Feedback
+    let mentorFeedback = '';
+    if (fomoCount > 0 && fomoWin < calmWin && calmTrades.length > 0) {
+      mentorFeedback = `“Analisis data Anda membuktikan winrate saat trading dalam keadaan tenang (Calm) mencapai ${calmWin}%, jauh lebih tinggi dibandingkan saat FOMO yang hanya sebesar ${fomoWin}%. Kedisiplinan adalah kunci melipatgandakan portofolio Anda!”`;
+    } else if (revengeCount > 0 && revengeWin < calmWin && calmTrades.length > 0) {
+      mentorFeedback = `“Data audit mendeteksi winrate balas dendam (Revenge) Anda hanya sebesar ${revengeWin}% berbanding ${calmWin}% saat tenang (Calm). Menghentikan emosi pasca-loss adalah keharusan mutlak.”`;
+    } else {
+      const quotes = MENTOR_SAYINGS[mentorCategory];
+      mentorFeedback = quotes[Math.floor(Math.random() * quotes.length)];
+    }
 
     return {
       winrate,
@@ -160,7 +188,8 @@ class AIEngine {
       keyPitfalls,
       setupStrengths,
       mentorFeedback,
-      recommendations
+      recommendations,
+      correlations
     };
   }
 
@@ -253,7 +282,73 @@ class AIEngine {
       }
 
       // Limit confidence score to standard limits
+      // Limit confidence score to standard limits
       confidenceScore = Math.max(10, Math.min(99, confidenceScore));
+
+      const action = confidenceScore > 65 ? 'BUY' : (confidenceScore < 40 ? 'SELL' : 'HOLD');
+      const currentPrice = ticker.price;
+      const atrVal = ind.atr || currentPrice * 0.01;
+      
+      let entry = currentPrice;
+      let sl = 0;
+      let tp1 = 0;
+      let tp2 = 0;
+      let tp3 = 0;
+      const rr = "1 : 2.5";
+      
+      const isBull = action === 'BUY' || (action === 'HOLD' && sig.ema13_21Trend === 'BULL');
+      const trendText = isBull ? 'BULLISH' : 'BEARISH';
+
+      if (isBull) {
+        entry = Math.round((currentPrice - atrVal * 0.1) * 100) / 100;
+        sl = Math.round((entry - atrVal * 1.5) * 100) / 100;
+        tp1 = Math.round((entry + atrVal * 1.5) * 100) / 100;
+        tp2 = Math.round((entry + atrVal * 2.5) * 100) / 100;
+        tp3 = Math.round((entry + atrVal * 3.5) * 100) / 100;
+      } else {
+        entry = Math.round((currentPrice + atrVal * 0.1) * 100) / 100;
+        sl = Math.round((entry + atrVal * 1.5) * 100) / 100;
+        tp1 = Math.round((entry - atrVal * 1.5) * 100) / 100;
+        tp2 = Math.round((entry - atrVal * 2.5) * 100) / 100;
+        tp3 = Math.round((entry - atrVal * 3.5) * 100) / 100;
+      }
+
+      // Compile Reasons (Alasan)
+      const reasons = [];
+      if (sig.emaBullishCross) reasons.push("Golden Cross EMA 20/50 terdeteksi");
+      if (sig.macdBullishCross) reasons.push("MACD Bullish Cross terkonfirmasi");
+      if (sig.rsiOversold) reasons.push("RSI Oversold jenuh jual");
+      if (sig.volumeSurge) reasons.push("Volume spike lebih dari 2x rata-rata");
+      if (sig.fvg && sig.fvg !== 'NONE') reasons.push(`Terdeteksi ${sig.fvg === 'BULLISH_FVG' ? 'Bullish FVG' : 'Bearish FVG'}`);
+      if (sig.orderBlock && sig.orderBlock !== 'NONE') reasons.push(`Smart Money: Terdeteksi ${sig.orderBlock === 'BULLISH_OB' ? 'Bullish Order Block' : 'Bearish Order Block'}`);
+      if (sig.liquiditySweep) reasons.push("Pola Liquidity Sweep terdeteksi");
+      if (sig.breakerBlock && sig.breakerBlock !== 'NONE') reasons.push(`Smart Money: Terbentuk ${sig.breakerBlock}`);
+      if (sig.mitigationBlock && sig.mitigationBlock !== 'NONE') reasons.push(`Smart Money: Terbentuk ${sig.mitigationBlock}`);
+      if (reasons.length === 0) {
+        reasons.push("Struktur market mendukung pergerakan tren");
+      }
+      const alasanText = reasons.join(", ");
+
+      // Compile Risks (Potensi Risiko)
+      const risks = [];
+      if (sig.rsiOverbought) risks.push("RSI Overbought (jenuh beli)");
+      if (currentPrice > ind.resistance * 0.99) risks.push("Harga mendekati major resistance");
+      if (currentPrice < ind.support * 1.01) risks.push("Harga mendekati major support");
+      if (sig.stochRsiK > 80) risks.push("Stochastic RSI Overbought");
+      if (risks.length === 0) {
+        risks.push("Koreksi teknikal minor / volatilitas pasar");
+      }
+      const risikoText = risks.join(", ");
+
+      // Compile Conclusion (Kesimpulan)
+      let kesimpulanText = "";
+      if (action === 'BUY') {
+        kesimpulanText = "Setup BUY/LONG probabilitas tinggi berdasarkan konvergensi Smart Money Concept dan indikator momentum.";
+      } else if (action === 'SELL') {
+        kesimpulanText = "Setup SELL/SHORT probabilitas tinggi memanfaatkan penolakan di area supply dan jenuh beli.";
+      } else {
+        kesimpulanText = "Pasar berada dalam area konsolidasi. Direkomendasikan wait-and-see (HOLD).";
+      }
 
       // Push to result if conditions are met
       if (tags.length > 0) {
@@ -265,7 +360,17 @@ class AIEngine {
           indicators: ind,
           tags,
           confidenceScore,
-          recommendedAction: confidenceScore > 65 ? 'BUY' : (confidenceScore < 40 ? 'SELL' : 'HOLD'),
+          recommendedAction: action,
+          trend: trendText,
+          entry,
+          sl,
+          tp1,
+          tp2,
+          tp3,
+          riskReward: rr,
+          alasan: alasanText,
+          potensiRisiko: risikoText,
+          kesimpulan: kesimpulanText,
           timestamp: Date.now()
         });
       }

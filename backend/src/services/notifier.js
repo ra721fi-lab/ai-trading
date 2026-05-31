@@ -1,4 +1,8 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args)).catch(() => {});
+const nativeFetch = typeof globalThis.fetch !== 'undefined' ? globalThis.fetch : null;
+const fetchFn = (...args) => {
+  if (nativeFetch) return nativeFetch(...args);
+  return import('node-fetch').then(({default: f}) => f(...args)).catch(() => {});
+};
 
 class NotifierService {
   /**
@@ -13,20 +17,25 @@ class NotifierService {
       return { success: true, mode: 'mock' };
     }
 
-    const message = `🚀 *AI TRADING SIGNAL: ${signal.symbol}* 🚀\n\n` +
-      `▪️ *Action:* ${signal.recommendedAction === 'BUY' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}\n` +
-      `▪️ *Current Price:* $${signal.price}\n` +
-      `▪️ *Confidence Score:* ${signal.confidenceScore}%\n` +
-      `▪️ *Signals:* ${signal.tags.join(', ')}\n` +
-      `▪️ *Technical Status:*\n` +
-      `   - RSI: ${signal.indicators.rsi}\n` +
-      `   - support: $${signal.indicators.support}\n` +
-      `   - resistance: $${signal.indicators.resistance}\n\n` +
-      `⚡ *Tools AI Trading by Rafi* ⚡`;
+    const message = `⚡ *TOOLS AI TRADING BY RAFI* ⚡\n\n` +
+      `▪️ *Nama Koin:* ${signal.symbol}\n` +
+      `▪️ *Harga:* $${signal.price}\n` +
+      `▪️ *Trend:* ${signal.trend || 'BULLISH'}\n` +
+      `▪️ *Confidence:* ${signal.confidenceScore}%\n` +
+      `▪️ *Entry:* $${signal.entry || signal.price}\n` +
+      `▪️ *SL:* $${signal.sl}\n` +
+      `▪️ *TP1:* $${signal.tp1}\n` +
+      `▪️ *TP2:* $${signal.tp2}\n` +
+      `▪️ *TP3:* $${signal.tp3}\n` +
+      `▪️ *Risk Reward:* ${signal.riskReward || '1 : 2.5'}\n` +
+      `▪️ *Alasan:* ${signal.alasan || signal.tags.join(', ')}\n` +
+      `▪️ *Potensi Risiko:* ${signal.potensiRisiko}\n` +
+      `▪️ *Kesimpulan:* ${signal.kesimpulan}\n\n` +
+      `🚀 _Powered by Rafi Pro Trader AI Terminal_ 🚀`;
 
     try {
       const url = `https://api.telegram.org/bot${token}/sendMessage`;
-      const response = await fetch(url, {
+      const response = await fetchFn(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +88,7 @@ class NotifierService {
     };
 
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetchFn(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(embedPayload)

@@ -460,93 +460,163 @@ function MarketScanner() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {filteredScanner.map((item, idx) => {
-            const isBuy = item.recommendedAction === 'BUY';
+            const conf = item.confidenceScore;
+            
+            // Map strict color signals: 🟢 Strong Buy, 🔵 Buy, 🟡 Watchlist, 🟠 Sell, 🔴 Strong Sell
+            let signalText = '';
+            let signalBadgeClass = '';
+            let cardBorderClass = '';
+            
+            if (conf >= 85) {
+              signalText = '🟢 Strong Buy';
+              signalBadgeClass = 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40 glow-green animate-pulse';
+              cardBorderClass = 'border-emerald-500 bg-gradient-to-b from-emerald-950/10 to-transparent';
+            } else if (conf >= 65) {
+              signalText = '🔵 Buy';
+              signalBadgeClass = 'bg-cyan-500/25 text-cyan-400 border border-cyan-500/40 glow-blue';
+              cardBorderClass = 'border-cyan-500/80 bg-gradient-to-b from-cyan-950/5 to-transparent';
+            } else if (conf >= 40) {
+              signalText = '🟡 Watchlist';
+              signalBadgeClass = 'bg-amber-500/25 text-amber-400 border border-amber-500/40';
+              cardBorderClass = 'border-amber-500/40 bg-gradient-to-b from-amber-950/5 to-transparent';
+            } else if (conf >= 25) {
+              signalText = '🟠 Sell';
+              signalBadgeClass = 'bg-orange-500/25 text-orange-400 border border-orange-500/40';
+              cardBorderClass = 'border-orange-500/60 bg-gradient-to-b from-orange-950/5 to-transparent';
+            } else {
+              signalText = '🔴 Strong Sell';
+              signalBadgeClass = 'bg-rose-500/25 text-rose-400 border border-rose-500/40 glow-magenta animate-pulse';
+              cardBorderClass = 'border-rose-500 bg-gradient-to-b from-rose-950/10 to-transparent';
+            }
+
             return (
               <motion.div
                 key={item.symbol}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`glassmorphism rounded-xl border p-5 flex flex-col justify-between ${
-                  isBuy ? 'border-neon-green bg-gradient-to-b from-emerald-950/5 to-transparent' : 'border-neon-magenta bg-gradient-to-b from-rose-950/5 to-transparent'
-                }`}
+                className={`glassmorphism rounded-xl border p-5 flex flex-col justify-between space-y-4 shadow-lg ${cardBorderClass}`}
               >
                 <div>
-                  <div className="flex justify-between items-center mb-3">
+                  {/* Card Header Info */}
+                  <div className="flex justify-between items-start mb-3.5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold font-tech text-slate-100">{item.symbol}</h3>
-                        <span className={`text-[8px] px-1 rounded font-tech font-bold ${
-                          idx % 3 === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                          idx % 3 === 1 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
-                          'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                        }`}>
+                        <h3 className="text-xl font-bold font-tech text-slate-100">{item.symbol}</h3>
+                        <span className="text-[8px] px-1 rounded bg-slate-950 border border-cyan-500/10 text-cyan-300/60 font-tech">
                           {idx % 3 === 0 ? 'BINANCE' : idx % 3 === 1 ? 'BYBIT' : 'OKX'}
                         </span>
                       </div>
-                      <span className="text-[10px] text-cyan-300/40 font-tech">Vol: ${(item.volume / 1000000).toFixed(1)}M</span>
+                      <span className="text-[10px] text-cyan-300/40 font-tech uppercase tracking-wider">Vol 24h: ${(item.volume / 1000000).toFixed(2)}M</span>
                     </div>
-                    <span className={`px-2.5 py-1 rounded text-xs font-tech font-bold ${
-                      isBuy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                    }`}>
-                      {item.recommendedAction}
+                    <span className={`px-2.5 py-1 rounded text-xs font-tech font-bold uppercase tracking-widest ${signalBadgeClass}`}>
+                      {signalText}
                     </span>
                   </div>
 
-                  {/* Confidence Score Bar */}
-                  <div className="space-y-1.5 mb-4">
-                    <div className="flex justify-between text-xs font-tech">
-                      <span className="text-cyan-300/50">Confidence Score:</span>
-                      <span className={isBuy ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{item.confidenceScore}%</span>
-                    </div>
-                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-cyan-500/10">
-                      <div className={`h-full ${isBuy ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${item.confidenceScore}%` }} />
-                    </div>
-                  </div>
-
-                  {/* Technical Indicator Stats */}
-                  <div className="grid grid-cols-2 gap-3 text-xs border-t border-cyan-500/10 pt-3">
-                    <div>
-                      <span className="text-[10px] text-cyan-300/40 uppercase tracking-wider font-tech">RSI (14)</span>
-                      <p className="font-bold font-tech text-slate-300 mt-0.5">{item.indicators.rsi}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-cyan-300/40 uppercase tracking-wider font-tech">StochRSI (5,3,3)</span>
-                      <p className="font-bold font-tech text-purple-300 mt-0.5">
-                        {item.indicators.stochRsi ? `K:${Math.round(item.indicators.stochRsi.k)} D:${Math.round(item.indicators.stochRsi.d)}` : 'K:50 D:50'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-cyan-300/40 uppercase tracking-wider font-tech">EMA 13 / 21 Trend</span>
-                      <div className="mt-0.5">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-tech font-bold uppercase tracking-wider ${
-                          item.indicators.emaTrend13_21 === 'BULL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
-                        }`}>
-                          {item.indicators.emaTrend13_21 || 'BULL'}
+                  {/* 13-Point Specifications Grid */}
+                  <div className="space-y-3.5 text-xs font-tech">
+                    {/* Trend & Confidence bar */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-cyan-500/5">
+                        <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest block">{t('trend')}</span>
+                        <span className={`font-bold text-sm tracking-wider uppercase ${item.trend === 'BULLISH' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {item.trend || 'BULLISH'}
                         </span>
                       </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-cyan-300/40 uppercase tracking-wider font-tech">Support Target</span>
-                      <p className="font-bold font-tech text-slate-300 mt-0.5">${item.indicators.support?.toFixed(2)}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-[10px] text-cyan-300/40 uppercase tracking-wider font-tech">Detected Setup Signals</span>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {item.tags.map((tag, i) => (
-                          <span key={i} className="px-1.5 py-0.5 bg-slate-950 rounded text-[9px] font-tech text-cyan-400 border border-cyan-500/25">
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-cyan-500/5">
+                        <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest block">Confidence</span>
+                        <span className="font-bold text-sm text-cyan-300">{item.confidenceScore}%</span>
                       </div>
                     </div>
+
+                    {/* Entry and Stop Loss Targets */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-cyan-500/5">
+                        <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest block">{t('entryTarget')}</span>
+                        <span className="font-bold text-sm text-slate-100">${item.entry?.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-rose-500/10">
+                        <span className="text-[9px] text-rose-400/60 uppercase tracking-widest block">{t('stopLossTarget')}</span>
+                        <span className="font-bold text-sm text-rose-400">${item.sl?.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Three Take Profit Targets */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-950/60 p-2 rounded border border-emerald-500/10 text-center">
+                        <span className="text-[8px] text-slate-400 uppercase tracking-tighter block">TP1</span>
+                        <span className="font-bold text-emerald-400 text-xs">${item.tp1?.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950/60 p-2 rounded border border-emerald-500/10 text-center">
+                        <span className="text-[8px] text-slate-400 uppercase tracking-tighter block">TP2</span>
+                        <span className="font-bold text-emerald-400 text-xs">${item.tp2?.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950/60 p-2 rounded border border-emerald-500/10 text-center">
+                        <span className="text-[8px] text-slate-400 uppercase tracking-tighter block">TP3</span>
+                        <span className="font-bold text-emerald-400 text-xs">${item.tp3?.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Risk Reward Ratio */}
+                    <div className="bg-slate-950/60 p-2.5 rounded-lg border border-cyan-500/5 flex justify-between items-center">
+                      <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest">Risk Reward Ratio</span>
+                      <span className="font-bold text-slate-200 text-sm">{item.riskReward}</span>
+                    </div>
+
+                    {/* Technical Reasons */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest block">{t('reasonsTitle')}</span>
+                      <div className="p-2.5 rounded-lg bg-slate-950/40 border border-cyan-500/5 text-[11px] text-slate-300 font-light leading-relaxed">
+                        {item.alasan}
+                      </div>
+                    </div>
+
+                    {/* Risks and Warnings */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-pink-400/60 uppercase tracking-widest block">{t('risksTitle')}</span>
+                      <div className="p-2.5 rounded-lg bg-pink-950/15 border border-pink-500/10 text-[11px] text-pink-300 font-medium">
+                        ⚠️ {item.potensiRisiko}
+                      </div>
+                    </div>
+
+                    {/* AI Mentor Conclusion */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-purple-400/60 uppercase tracking-widest block">{t('conclusionTitle')}</span>
+                      <div className="p-2.5 rounded-lg bg-purple-950/15 border border-purple-500/10 text-[11px] text-purple-300 italic leading-normal">
+                        {item.kesimpulan}
+                      </div>
+                    </div>
+
+                    {/* Liquidation Heatmap mini visual grid */}
+                    {item.indicators.liquidationHeatmap && (
+                      <div className="space-y-1.5 pt-2.5 border-t border-cyan-500/10">
+                        <span className="text-[9px] text-cyan-300/40 uppercase tracking-widest block">{t('liquidationHeatmapTitle')}</span>
+                        <div className="space-y-1 max-h-[80px] overflow-y-auto pr-1">
+                          {item.indicators.liquidationHeatmap.slice(0, 4).map((liq, idx) => {
+                            const isLong = liq.type === 'LONG';
+                            const fillPercent = Math.min(100, Math.max(10, (liq.volume / 1200000) * 100));
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-[10px] font-tech text-slate-400">
+                                <span className="w-10 text-[9px] text-slate-500">{liq.leverage} {liq.type}</span>
+                                <span className={isLong ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>${liq.price?.toLocaleString()}</span>
+                                <div className="flex-1 max-w-[80px] h-1.5 bg-slate-950 border border-slate-900 rounded-full overflow-hidden ml-2 relative">
+                                  <div className={`h-full ${isLong ? 'bg-emerald-500/60' : 'bg-rose-500/60'}`} style={{ width: `${fillPercent}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-cyan-500/10 flex justify-between items-center text-[10px] font-tech">
-                  <span className="text-cyan-300/30">Price: ${item.price?.toFixed(2)}</span>
-                  <span className={item.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                    {item.changePercent >= 0 ? '+' : ''}{item.changePercent?.toFixed(2)}%
+                <div className="pt-3 border-t border-cyan-500/10 flex justify-between items-center text-[10px] font-tech text-cyan-300/30">
+                  <span>Last Price: ${item.price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>
+                  <span className={item.changePercent >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {item.changePercent >= 0 ? '▲' : '▼'} {item.changePercent?.toFixed(2)}%
                   </span>
                 </div>
               </motion.div>
@@ -1548,6 +1618,41 @@ function AIEvaluator() {
           </div>
         </div>
       </div>
+
+      {/* Emotional Winrate Correlation Chart */}
+      {evalData?.correlations && evalData.correlations.length > 0 && (
+        <div className="glassmorphism rounded-xl p-6 border-neon-blue mt-6">
+          <h3 className="text-md font-bold font-tech text-cyan-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 animate-pulse" /> {t('emotionalCorrelationTitle')}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {evalData.correlations.map((corr) => {
+              const wr = corr.winrate || 0;
+              const isCalm = corr.factor === 'Calm';
+              const fillPct = `${wr}%`;
+              let barColorClass = 'bg-rose-500/80 shadow-rose-500/20';
+              if (isCalm) {
+                barColorClass = 'bg-emerald-500/80 shadow-emerald-500/20';
+              } else if (wr > 50) {
+                barColorClass = 'bg-cyan-500/80 shadow-cyan-500/20';
+              } else if (wr > 35) {
+                barColorClass = 'bg-amber-500/80 shadow-amber-500/20';
+              }
+
+              return (
+                <div key={corr.factor} className="p-4 rounded-xl bg-slate-950/60 border border-cyan-500/5 flex flex-col justify-between items-center text-center font-tech">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-widest">{corr.factor}</span>
+                  <div className="w-full bg-slate-900 rounded-full h-3 border border-cyan-500/10 overflow-hidden my-3 relative shadow-inner">
+                    <div className={`h-full rounded-full transition-all duration-500 shadow-md ${barColorClass}`} style={{ width: fillPct }} />
+                  </div>
+                  <p className="text-md font-bold text-slate-100">{wr}% Winrate</p>
+                  <span className="text-[9px] text-cyan-300/40 mt-1">{corr.count} Closed Trades</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

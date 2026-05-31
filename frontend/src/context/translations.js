@@ -109,7 +109,21 @@ export const translations = {
     // Language Toggle
     changeLanguage: "Pilih Bahasa",
     indoName: "Bahasa Indonesia",
-    engName: "English"
+    engName: "English",
+
+    // Upgrades
+    coinName: "Nama Koin",
+    trend: "Trend",
+    entryTarget: "Harga Masuk (Entry)",
+    stopLossTarget: "Stop Loss (SL)",
+    takeProfit1: "Take Profit 1 (TP1)",
+    takeProfit2: "Take Profit 2 (TP2)",
+    takeProfit3: "Take Profit 3 (TP3)",
+    reasonsTitle: "Alasan Entry Teknikal",
+    risksTitle: "Potensi Risiko / Peringatan",
+    conclusionTitle: "Kesimpulan AI Mentor",
+    liquidationHeatmapTitle: "Peta Likuidasi Pasaran (Heatmap)",
+    emotionalCorrelationTitle: "Korelasi Psikologi & Win Rate Riil Jurnal"
   },
   en: {
     // Navigation & Shell
@@ -221,6 +235,20 @@ export const translations = {
     // Language Toggle
     changeLanguage: "Select Language",
     indoName: "Bahasa Indonesia",
-    engName: "English"
+    engName: "English",
+
+    // Upgrades
+    coinName: "Coin Name",
+    trend: "Trend",
+    entryTarget: "Entry Price Target",
+    stopLossTarget: "Stop Loss Target (SL)",
+    takeProfit1: "Take Profit 1 (TP1)",
+    takeProfit2: "Take Profit 2 (TP2)",
+    takeProfit3: "Take Profit 3 (TP3)",
+    reasonsTitle: "Technical Trigger Reasons",
+    risksTitle: "Potential Risks & Warnings",
+    conclusionTitle: "AI Mentor Conclusion",
+    liquidationHeatmapTitle: "Market Liquidation Heatmap",
+    emotionalCorrelationTitle: "Psychology & Actual Win Rate Correlation"
   }
 };

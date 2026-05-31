@@ -423,6 +423,13 @@ class IndicatorsEngine {
     const prevLow = lows[count - 2];
     const isLiquiditySweep = lastPrice > prevLow && lows[count - 1] < prevLow;
 
+    // 4. Breaker and Mitigation Block detection
+    const smcBlocks = this.detectSMCBlocks(candles);
+
+    // 5. Liquidation Heatmap Calculation
+    const atrVal = atr[count - 1] || lastPrice * 0.01;
+    const liquidationHeatmap = this.calculateLiquidationHeatmap(lastPrice, atrVal);
+
     return {
       price: lastPrice,
       indicators: {
@@ -450,8 +457,9 @@ class IndicatorsEngine {
         },
         support: Math.round(currentSupport * 100) / 100,
         resistance: Math.round(currentResistance * 100) / 100,
-        atr: Math.round((atr[count - 1] || lastPrice * 0.01) * 100) / 100,
-        vwap: Math.round((vwap[count - 1] || lastPrice) * 100) / 100
+        atr: Math.round(atrVal * 100) / 100,
+        vwap: Math.round((vwap[count - 1] || lastPrice) * 100) / 100,
+        liquidationHeatmap
       },
       signals: {
         emaBullishCross: isEmaCrossover,
@@ -464,9 +472,126 @@ class IndicatorsEngine {
         stochRsiD: latestStochD,
         fvg: fvgDetected,
         orderBlock: orderBlockDetected,
-        liquiditySweep: isLiquiditySweep
+        liquiditySweep: isLiquiditySweep,
+        breakerBlock: smcBlocks.breaker,
+        mitigationBlock: smcBlocks.mitigation,
+        marketStructureBreak: smcBlocks.bos,
+        marketStructureChange: smcBlocks.choch
       }
     };
+  }
+
+  /**
+   * Detect Swing Points, Breaker Blocks, and Mitigation Blocks
+   * @param {Array<Object>} candles 
+   * @returns {Object} { breaker: string, mitigation: string, bos: boolean, choch: boolean }
+   */
+  detectSMCBlocks(candles) {
+    if (candles.length < 20) {
+      return { breaker: 'NONE', mitigation: 'NONE', bos: false, choch: false };
+    }
+    const count = candles.length;
+    const lastCandle = candles[count - 1];
+    const prevCandle = candles[count - 2];
+    
+    // Identify swing points with a 5-candle window
+    const swingHighs = [];
+    const swingLows = [];
+    
+    for (let i = 2; i < count - 2; i++) {
+      if (candles[i].high > candles[i-1].high && candles[i].high > candles[i-2].high &&
+          candles[i].high > candles[i+1].high && candles[i].high > candles[i+2].high) {
+        swingHighs.push({ index: i, price: candles[i].high, time: candles[i].time });
+      }
+      if (candles[i].low < candles[i-1].low && candles[i].low < candles[i-2].low &&
+          candles[i].low < candles[i+1].low && candles[i].low < candles[i+2].low) {
+        swingLows.push({ index: i, price: candles[i].low, time: candles[i].time });
+      }
+    }
+    
+    let breaker = 'NONE';
+    let mitigation = 'NONE';
+    let bos = false;
+    let choch = false;
+    
+    if (swingHighs.length > 0 && swingLows.length > 0) {
+      const recentSwingHigh = swingHighs[swingHighs.length - 1];
+      const recentSwingLow = swingLows[swingLows.length - 1];
+      
+      // BOS and CHoCH structure shift detection
+      if (lastCandle.close > recentSwingHigh.price && prevCandle.close <= recentSwingHigh.price) {
+        bos = true;
+        choch = true;
+        
+        // Bullish structures: Sweep check
+        const priorLows = swingLows.filter(l => l.index < recentSwingHigh.index);
+        if (priorLows.length > 1) {
+          const secondRecentLow = priorLows[priorLows.length - 1];
+          const thirdRecentLow = priorLows[priorLows.length - 2];
+          if (secondRecentLow.price < thirdRecentLow.price) {
+            breaker = 'BULLISH_BREAKER';
+          } else {
+            mitigation = 'BULLISH_MITIGATION';
+          }
+        } else {
+          breaker = 'BULLISH_BREAKER';
+        }
+      } else if (lastCandle.close < recentSwingLow.price && prevCandle.close >= recentSwingLow.price) {
+        bos = true;
+        choch = true;
+        
+        // Bearish structures
+        const priorHighs = swingHighs.filter(h => h.index < recentSwingLow.index);
+        if (priorHighs.length > 1) {
+          const secondRecentHigh = priorHighs[priorHighs.length - 1];
+          const thirdRecentHigh = priorHighs[priorHighs.length - 2];
+          if (secondRecentHigh.price > thirdRecentHigh.price) {
+            breaker = 'BEARISH_BREAKER';
+          } else {
+            mitigation = 'BEARISH_MITIGATION';
+          }
+        } else {
+          breaker = 'BEARISH_BREAKER';
+        }
+      }
+    }
+    
+    return { breaker, mitigation, bos, choch };
+  }
+
+  /**
+   * Calculate simulated liquidation clusters mapping
+   * @param {number} lastPrice 
+   * @param {number} atrVal 
+   * @returns {Array<Object>}
+   */
+  calculateLiquidationHeatmap(lastPrice, atrVal) {
+    const leverageLevels = [
+      { leverage: 100, pct: 0.01, type: 'LONG_100X' },
+      { leverage: 50, pct: 0.02, type: 'LONG_50X' },
+      { leverage: 25, pct: 0.04, type: 'LONG_25X' },
+      { leverage: 10, pct: 0.10, type: 'LONG_10X' },
+      { leverage: 100, pct: 0.01, type: 'SHORT_100X' },
+      { leverage: 50, pct: 0.02, type: 'SHORT_50X' },
+      { leverage: 25, pct: 0.04, type: 'SHORT_25X' },
+      { leverage: 10, pct: 0.10, type: 'SHORT_10X' }
+    ];
+    
+    return leverageLevels.map(lvl => {
+      const isLong = lvl.type.startsWith('LONG');
+      const offset = lastPrice * lvl.pct;
+      // Dynamic noise
+      const noise = (Math.sin(lastPrice * lvl.leverage) * 0.03) * atrVal;
+      const liqPrice = isLong ? lastPrice - offset + noise : lastPrice + offset - noise;
+      const volumeIntensity = Math.round(400000 + (100 - lvl.leverage) * 12000 + Math.random() * 250000);
+      
+      return {
+        price: Math.round(liqPrice * 100) / 100,
+        volume: volumeIntensity,
+        leverage: `${lvl.leverage}x`,
+        type: isLong ? 'LONG' : 'SHORT'
+      };
+    });
   }
 }
 
