@@ -562,13 +562,24 @@ function MarketScanner() {
 // 3. CUSTOM STRATEGY BUILDER
 // ==========================================
 function StrategyBuilder() {
-  const { strategies, addStrategy, deleteStrategy } = useContext(AppContext);
+  const { strategies, addStrategy, deleteStrategy, user } = useContext(AppContext);
+  const [activeSubTab, setActiveSubTab] = useState('editor'); // 'editor' or 'calculator'
+
+  // Strategy Builder State
   const [name, setName] = useState('');
   const [timeframe, setTimeframe] = useState('15m');
   const [rsiLower, setRsiLower] = useState('30');
   const [stopLoss, setStopLoss] = useState('2');
   const [takeProfit, setTakeProfit] = useState('6');
   const [riskReward, setRiskReward] = useState('1:3');
+
+  // Sizing Calculator State
+  const [calcBalance, setCalcBalance] = useState(user?.balance || 10000);
+  const [calcRisk, setCalcRisk] = useState('1'); // %
+  const [calcLeverage, setCalcLeverage] = useState('10');
+  const [calcEntry, setCalcEntry] = useState('68000');
+  const [calcSL, setCalcSL] = useState('2'); // %
+  const [calcType, setCalcType] = useState('LONG'); // LONG or SHORT
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -593,144 +604,339 @@ function StrategyBuilder() {
     }
   };
 
+  // Calculator Sizing Derivatives
+  const numBalance = parseFloat(calcBalance) || 10000;
+  const numRisk = parseFloat(calcRisk) || 1;
+  const numLeverage = parseFloat(calcLeverage) || 10;
+  const numEntry = parseFloat(calcEntry) || 68000;
+  const numSL = parseFloat(calcSL) || 2;
+
+  const amountToRisk = numBalance * (numRisk / 100);
+  const positionSize = amountToRisk / (numSL / 100);
+  const requiredMargin = positionSize / numLeverage;
+  const contractQty = positionSize / numEntry;
+
+  const slPrice = calcType === 'LONG' 
+    ? numEntry * (1 - numSL / 100) 
+    : numEntry * (1 + numSL / 100);
+
+  const tp1 = calcType === 'LONG' ? numEntry * (1 + numSL / 100) : numEntry * (1 - numSL / 100);
+  const tp2 = calcType === 'LONG' ? numEntry * (1 + (numSL * 2) / 100) : numEntry * (1 - (numSL * 2) / 100);
+  const tp3 = calcType === 'LONG' ? numEntry * (1 + (numSL * 3) / 100) : numEntry * (1 - (numSL * 3) / 100);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Strategy Form */}
-      <div className="glassmorphism rounded-xl p-6 border-neon-blue space-y-5">
-        <h2 className="text-lg font-bold font-tech text-cyan-400 flex items-center gap-2">
-          <Terminal className="w-5 h-5" /> CREATE NEW STRATEGY
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Strategy Name</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. RSI Oversold Breakout"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-tech"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Timeframe</label>
-              <select
-                value={timeframe}
-                onChange={(e) => setTimeframe(e.target.value)}
-                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech font-bold"
-              >
-                <option value="5m">5m</option>
-                <option value="15m">15m</option>
-                <option value="1h">1h</option>
-                <option value="4h">4h</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">RSI Threshold</label>
-              <input
-                type="number"
-                required
-                min="10"
-                max="50"
-                value={rsiLower}
-                onChange={(e) => setRsiLower(e.target.value)}
-                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Stop Loss (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                value={stopLoss}
-                onChange={(e) => setStopLoss(e.target.value)}
-                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Take Profit (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                value={takeProfit}
-                onChange={(e) => setTakeProfit(e.target.value)}
-                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Risk-Reward Ratio</label>
-            <input
-              type="text"
-              required
-              value={riskReward}
-              onChange={(e) => setRiskReward(e.target.value)}
-              className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-400 border border-cyan-500/40 font-bold font-tech text-xs uppercase py-3 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:shadow-cyan-500/10"
-          >
-            Create Strategy
-          </button>
-        </form>
+    <div className="space-y-6">
+      {/* Sub tabs */}
+      <div className="flex gap-3 border-b border-cyan-500/10 pb-4">
+        <button
+          onClick={() => setActiveSubTab('editor')}
+          className={`px-4 py-2 rounded-lg font-tech text-xs uppercase cursor-pointer border transition-all ${
+            activeSubTab === 'editor' 
+              ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/10 font-bold' 
+              : 'bg-slate-950/40 border-cyan-500/10 text-cyan-300/40 hover:text-cyan-300'
+          }`}
+        >
+          Strategy Rule Editor
+        </button>
+        <button
+          onClick={() => setActiveSubTab('calculator')}
+          className={`px-4 py-2 rounded-lg font-tech text-xs uppercase cursor-pointer border transition-all ${
+            activeSubTab === 'calculator' 
+              ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-md shadow-purple-500/10 font-bold' 
+              : 'bg-slate-950/40 border-purple-500/10 text-purple-300/40 hover:text-purple-300'
+          }`}
+        >
+          AI Futures Sizing Calculator
+        </button>
       </div>
 
-      {/* Strategies List */}
-      <div className="lg:col-span-2 glassmorphism rounded-xl p-6 border-neon-purple flex flex-col">
-        <h2 className="text-lg font-bold font-tech text-purple-400 mb-4 flex items-center gap-2">
-          <Compass className="w-5 h-5" /> ACTIVE TRADING STRATEGIES
-        </h2>
+      {activeSubTab === 'editor' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Strategy Form */}
+          <div className="glassmorphism rounded-xl p-6 border-neon-blue space-y-5">
+            <h2 className="text-md font-bold font-tech text-cyan-400 flex items-center gap-2">
+              <Terminal className="w-4 h-4" /> CREATE NEW STRATEGY
+            </h2>
 
-        <div className="flex-1 space-y-4 overflow-y-auto max-h-[430px] pr-2">
-          {strategies.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-cyan-300/20 font-tech py-12">
-              <Terminal className="w-12 h-12 mb-2 animate-pulse" />
-              <p className="text-xs uppercase">Belum ada strategi yang dibuat...</p>
-            </div>
-          ) : (
-            strategies.map((s) => {
-              const cond = JSON.parse(s.entryConditions || '{}');
-              return (
-                <div key={s.id} className="p-5 rounded-xl bg-slate-950/60 border border-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="space-y-1">
-                    <span className="px-2 py-0.5 rounded bg-purple-500/25 border border-purple-500/40 text-purple-300 text-[9px] font-tech font-bold uppercase tracking-wider">{s.timeframe}</span>
-                    <h3 className="text-md font-bold font-tech text-slate-200 mt-1">{s.name}</h3>
-                    <p className="text-xs text-cyan-300/40 font-tech mt-1">
-                      Rules: RSI &lt; {cond.rsi?.value || 30} & volume surge = TRUE
-                    </p>
-                  </div>
-                  <div className="flex sm:flex-col items-end gap-3 w-full sm:w-auto">
-                    <div className="text-right text-xs font-tech">
-                      <span className="text-cyan-300/40">Risk-Reward:</span>
-                      <p className="font-bold text-slate-200 mt-0.5">{s.riskReward}</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Strategy Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. RSI Oversold Breakout"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-tech"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Timeframe</label>
+                  <select
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech font-bold"
+                  >
+                    <option value="5m">5m</option>
+                    <option value="15m">15m</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">RSI Threshold</label>
+                  <input
+                    type="number"
+                    required
+                    min="10"
+                    max="50"
+                    value={rsiLower}
+                    onChange={(e) => setRsiLower(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Stop Loss (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    value={stopLoss}
+                    onChange={(e) => setStopLoss(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Take Profit (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    value={takeProfit}
+                    onChange={(e) => setTakeProfit(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-tech text-cyan-300/80 uppercase tracking-widest">Risk-Reward Ratio</label>
+                <input
+                  type="text"
+                  required
+                  value={riskReward}
+                  onChange={(e) => setRiskReward(e.target.value)}
+                  className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-400 border border-cyan-500/40 font-bold font-tech text-xs uppercase py-3 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:shadow-cyan-500/10"
+              >
+                Create Strategy
+              </button>
+            </form>
+          </div>
+
+          {/* Strategies List */}
+          <div className="lg:col-span-2 glassmorphism rounded-xl p-6 border-neon-purple flex flex-col">
+            <h2 className="text-md font-bold font-tech text-purple-400 mb-4 flex items-center gap-2">
+              <Compass className="w-4 h-4" /> ACTIVE TRADING STRATEGIES
+            </h2>
+
+            <div className="flex-1 space-y-4 overflow-y-auto max-h-[430px] pr-2">
+              {strategies.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-cyan-300/20 font-tech py-12">
+                  <Terminal className="w-12 h-12 mb-2 animate-pulse" />
+                  <p className="text-xs uppercase">Belum ada strategi yang dibuat...</p>
+                </div>
+              ) : (
+                strategies.map((s) => {
+                  const cond = JSON.parse(s.entryConditions || '{}');
+                  return (
+                    <div key={s.id} className="p-5 rounded-xl bg-slate-950/60 border border-purple-500/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="space-y-1">
+                        <span className="px-2 py-0.5 rounded bg-purple-500/25 border border-purple-500/40 text-purple-300 text-[9px] font-tech font-bold uppercase tracking-wider">{s.timeframe}</span>
+                        <h3 className="text-md font-bold font-tech text-slate-200 mt-1">{s.name}</h3>
+                        <p className="text-xs text-cyan-300/40 font-tech mt-1">
+                          Rules: RSI &lt; {cond.rsi?.value || 30} & volume surge = TRUE
+                        </p>
+                      </div>
+                      <div className="flex sm:flex-col items-end gap-3 w-full sm:w-auto">
+                        <div className="text-right text-xs font-tech">
+                          <span className="text-cyan-300/40">Risk-Reward:</span>
+                          <p className="font-bold text-slate-200 mt-0.5">{s.riskReward}</p>
+                        </div>
+                        <button
+                          onClick={() => deleteStrategy(s.id)}
+                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/35 text-rose-400 rounded-lg text-xs font-tech font-bold cursor-pointer transition-all uppercase"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => deleteStrategy(s.id)}
-                      className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/35 text-rose-400 rounded-lg text-xs font-tech font-bold cursor-pointer transition-all uppercase"
-                    >
-                      Delete
-                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* AI Futures Risk & Sizing Calculator */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Calculator Parameters */}
+          <div className="glassmorphism rounded-xl p-6 border-neon-purple space-y-4">
+            <h2 className="text-md font-bold font-tech text-purple-400 flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> RISK SIZING VARIABLES
+            </h2>
+
+            <div className="space-y-3.5 text-xs font-tech">
+              <div className="space-y-1">
+                <label className="text-[10px] text-purple-300/80 uppercase">Account Balance ($)</label>
+                <input
+                  type="number"
+                  value={calcBalance}
+                  onChange={(e) => setCalcBalance(e.target.value)}
+                  className="w-full bg-slate-950 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-purple-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-purple-300/80 uppercase">Risk per Trade (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={calcRisk}
+                    onChange={(e) => setCalcRisk(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-purple-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-purple-300/80 uppercase">Leverage Factor</label>
+                  <input
+                    type="number"
+                    value={calcLeverage}
+                    onChange={(e) => setCalcLeverage(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-purple-300/80 uppercase">Position Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCalcType('LONG')}
+                    className={`flex-1 py-2 rounded font-bold border transition-all cursor-pointer ${
+                      calcType === 'LONG' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-purple-500/10 text-purple-300/40'
+                    }`}
+                  >
+                    🟢 BUY / LONG
+                  </button>
+                  <button
+                    onClick={() => setCalcType('SHORT')}
+                    className={`flex-1 py-2 rounded font-bold border transition-all cursor-pointer ${
+                      calcType === 'SHORT' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-slate-950 border-purple-500/10 text-purple-300/40'
+                    }`}
+                  >
+                    🔴 SELL / SHORT
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-purple-300/80 uppercase">Entry Price ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={calcEntry}
+                    onChange={(e) => setCalcEntry(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-purple-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-purple-300/80 uppercase">Stop Loss Target (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={calcSL}
+                    onChange={(e) => setCalcSL(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sizing Outputs */}
+          <div className="lg:col-span-2 glassmorphism rounded-xl p-6 border-neon-green flex flex-col justify-between">
+            <div>
+              <h2 className="text-md font-bold font-tech text-emerald-400 flex items-center gap-2 mb-4">
+                <Sparkles className="w-4 h-4 animate-pulse" /> AI FUTURES POSITION ESTIMATES
+              </h2>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-tech mb-6">
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-emerald-500/10 space-y-1">
+                  <span className="text-[10px] text-cyan-400/60 uppercase">Amount at Risk</span>
+                  <p className="text-xl font-bold text-slate-200">${amountToRisk.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400">({numRisk}% Modal)</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-emerald-500/10 space-y-1">
+                  <span className="text-[10px] text-cyan-400/60 uppercase">Required Margin</span>
+                  <p className="text-xl font-bold text-slate-200">${requiredMargin.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400">(Leverage {numLeverage}x)</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-emerald-500/10 space-y-1 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-cyan-400/60 uppercase">Contract Position Size</span>
+                  <p className="text-xl font-bold text-emerald-400">${positionSize.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400">({contractQty.toFixed(4)} Qty)</span>
+                </div>
+              </div>
+
+              {/* Targets and Stop Loss */}
+              <div className="space-y-4 font-tech text-xs border-t border-emerald-500/10 pt-4">
+                <div className="flex justify-between items-center bg-slate-950/40 p-3 rounded-lg border border-rose-500/10">
+                  <span className="text-rose-400 font-bold uppercase tracking-wider">Estimated Stop Loss Price:</span>
+                  <span className="text-rose-300 font-bold text-sm">${slPrice.toFixed(2)}</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="bg-slate-950/40 p-3 rounded-lg border border-emerald-500/10 flex justify-between sm:flex-col gap-1">
+                    <span className="text-slate-400 font-bold">Target Profit 1 (RR 1:1)</span>
+                    <span className="text-emerald-400 font-bold text-sm text-right sm:text-left">${tp1.toFixed(2)}</span>
+                  </div>
+                  <div className="bg-slate-950/40 p-3 rounded-lg border border-emerald-500/10 flex justify-between sm:flex-col gap-1">
+                    <span className="text-slate-400 font-bold">Target Profit 2 (RR 1:2)</span>
+                    <span className="text-emerald-400 font-bold text-sm text-right sm:text-left">${tp2.toFixed(2)}</span>
+                  </div>
+                  <div className="bg-slate-950/40 p-3 rounded-lg border border-emerald-500/10 flex justify-between sm:flex-col gap-1">
+                    <span className="text-slate-400 font-bold">Target Profit 3 (RR 1:3)</span>
+                    <span className="text-emerald-400 font-bold text-sm text-right sm:text-left">${tp3.toFixed(2)}</span>
                   </div>
                 </div>
-              );
-            })
-          )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-emerald-300/40 font-tech italic mt-6 border-t border-emerald-500/10 pt-3">
+              Kalkulator ini mensimulasikan ukuran kontrak trading futures secara non-custodial untuk membantu trader mengelola persentase risiko maksimum portofolio per posisi secara disiplin.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -289,7 +289,57 @@ class IndicatorsEngine {
   }
 
   /**
-   * Run full indicator suite on candles array
+   * Calculate Average True Range (ATR)
+   */
+  calculateATR(highs, lows, closes, period = 14) {
+    const atr = [];
+    const trs = [highs[0] - lows[0]];
+    
+    for (let i = 1; i < closes.length; i++) {
+      const tr = Math.max(
+        highs[i] - lows[i],
+        Math.abs(highs[i] - closes[i - 1]),
+        Math.abs(lows[i] - closes[i - 1])
+      );
+      trs.push(tr);
+    }
+    
+    let sum = 0;
+    for (let i = 0; i < trs.length; i++) {
+      if (i < period - 1) {
+        atr.push(null);
+        sum += trs[i];
+      } else if (i === period - 1) {
+        sum += trs[i];
+        atr.push(sum / period);
+      } else {
+        const val = (atr[i - 1] * (period - 1) + trs[i]) / period;
+        atr.push(val);
+      }
+    }
+    return atr;
+  }
+
+  /**
+   * Calculate Volume Weighted Average Price (VWAP)
+   */
+  calculateVWAP(highs, lows, closes, volumes) {
+    const vwap = [];
+    let cumTpVol = 0;
+    let cumVol = 0;
+    
+    for (let i = 0; i < closes.length; i++) {
+      const tp = (highs[i] + lows[i] + closes[i]) / 3;
+      cumTpVol += tp * volumes[i];
+      cumVol += volumes[i];
+      
+      vwap.push(cumVol > 0 ? cumTpVol / cumVol : tp);
+    }
+    return vwap;
+  }
+
+  /**
+   * Run full indicator suite on candles array with advanced indicators and SMC concepts
    */
   analyze(candles, scanParams) {
     const closes = candles.map(c => c.close);
@@ -307,6 +357,7 @@ class IndicatorsEngine {
     const sma20 = this.calculateSMA(closes, 20);
     const emaShort = this.calculateEMA(closes, emaShortPeriod);
     const emaLong = this.calculateEMA(closes, emaLongPeriod);
+    const ema200 = this.calculateEMA(closes, 200);
     
     // EMA 13 / 21 Trend Crossovers (EMA 13 > 21 = BULL; EMA 13 < 21 = BEAR)
     const ema13 = this.calculateEMA(closes, 13);
@@ -322,6 +373,8 @@ class IndicatorsEngine {
     const macdData = this.calculateMACD(closes);
     const bbData = this.calculateBollingerBands(closes, 20, 2);
     const pivotSR = this.calculateSupportResistance(candles);
+    const atr = this.calculateATR(highs, lows, closes, 14);
+    const vwap = this.calculateVWAP(highs, lows, closes, volumes);
     
     // Get latest state values
     const lastPrice = closes[count - 1];
@@ -345,6 +398,31 @@ class IndicatorsEngine {
     const latestStochK = stochRsiData.k[count - 1] !== null ? Math.round(stochRsiData.k[count - 1] * 100) / 100 : 50.0;
     const latestStochD = stochRsiData.d[count - 1] !== null ? Math.round(stochRsiData.d[count - 1] * 100) / 100 : 50.0;
 
+    // Detect Smart Money Concepts (SMC)
+    // 1. Fair Value Gap (FVG) detection in last 3 candles
+    let fvgDetected = 'NONE';
+    if (highs[count - 3] < lows[count - 1]) {
+      fvgDetected = 'BULLISH_FVG';
+    } else if (lows[count - 3] > highs[count - 1]) {
+      fvgDetected = 'BEARISH_FVG';
+    }
+
+    // 2. Order Block (OB) detection in last 5 candles
+    let orderBlockDetected = 'NONE';
+    const last3BodySize = Math.abs(closes[count - 1] - closes[count - 2]);
+    const avgBodySize = closes.slice(-10).reduce((sum, val, idx) => sum + Math.abs(val - (closes[idx - 1] || val)), 0) / 10;
+    if (last3BodySize > avgBodySize * 1.5) {
+      if (closes[count - 1] > closes[count - 2]) {
+        orderBlockDetected = 'BULLISH_OB';
+      } else {
+        orderBlockDetected = 'BEARISH_OB';
+      }
+    }
+
+    // 3. Liquidity Sweep detection
+    const prevLow = lows[count - 2];
+    const isLiquiditySweep = lastPrice > prevLow && lows[count - 1] < prevLow;
+
     return {
       price: lastPrice,
       indicators: {
@@ -356,6 +434,7 @@ class IndicatorsEngine {
         },
         emaShort: Math.round(emaShort[count - 1] * 100) / 100,
         emaLong: Math.round(emaLong[count - 1] * 100) / 100,
+        ema200: Math.round((ema200[count - 1] || lastPrice) * 100) / 100,
         ema13: Math.round(ema13[count - 1] * 100) / 100,
         ema21: Math.round(ema21[count - 1] * 100) / 100,
         emaTrend13_21: emaTrend13_21,
@@ -371,6 +450,8 @@ class IndicatorsEngine {
         },
         support: Math.round(currentSupport * 100) / 100,
         resistance: Math.round(currentResistance * 100) / 100,
+        atr: Math.round((atr[count - 1] || lastPrice * 0.01) * 100) / 100,
+        vwap: Math.round((vwap[count - 1] || lastPrice) * 100) / 100
       },
       signals: {
         emaBullishCross: isEmaCrossover,
@@ -380,7 +461,10 @@ class IndicatorsEngine {
         volumeSurge: volumeSurge,
         ema13_21Trend: emaTrend13_21,
         stochRsiK: latestStochK,
-        stochRsiD: latestStochD
+        stochRsiD: latestStochD,
+        fvg: fvgDetected,
+        orderBlock: orderBlockDetected,
+        liquiditySweep: isLiquiditySweep
       }
     };
   }
