@@ -141,6 +141,22 @@ function AuthScreen() {
 function TerminalDashboard() {
   const { user, tickers, liveAlerts, evalData, speakAI, resetBalance } = useContext(AppContext);
 
+  const handleResetClick = async () => {
+    const val = prompt("Masukkan nominal saldo virtual baru Anda (USD):", user?.balance || "10000");
+    if (val !== null) {
+      const num = parseFloat(val);
+      if (isNaN(num) || num <= 0) {
+        alert("Nominal saldo tidak valid.");
+      } else {
+        try {
+          await resetBalance(num);
+        } catch (err) {
+          alert("Gagal menyetel saldo.");
+        }
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner Stats Grid */}
@@ -149,8 +165,8 @@ function TerminalDashboard() {
           <div>
             <p className="text-xs font-tech text-cyan-400 uppercase tracking-wider">Virtual Balance</p>
             <p className="text-2xl font-bold font-tech text-slate-100 mt-1">${user?.balance?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '10,000.00'}</p>
-            <button onClick={resetBalance} className="text-[10px] text-cyan-300/40 hover:text-cyan-300 hover:underline mt-2 flex items-center gap-1 font-tech uppercase">
-              <RefreshCw className="w-2.5 h-2.5" /> Reset Balance
+            <button onClick={handleResetClick} className="text-[10px] text-cyan-300/40 hover:text-cyan-300 hover:underline mt-2 flex items-center gap-1 font-tech uppercase">
+              <RefreshCw className="w-2.5 h-2.5" /> Adjust Balance
             </button>
           </div>
           <div className="p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/20">

@@ -131,10 +131,11 @@ router.post('/reset-balance', async (expressReq, expressRes) => {
       return expressRes.status(404).json({ error: 'User tidak ditemukan' });
     }
 
-    user.balance = 10000.0;
+    const customAmount = expressReq.body.amount;
+    user.balance = customAmount !== undefined ? parseFloat(customAmount) : 10000.0;
     await user.save();
 
-    expressRes.status(200).json({ message: 'Balance berhasil di-reset!', balance: user.balance });
+    expressRes.status(200).json({ message: 'Balance berhasil di-set!', balance: user.balance });
   } catch (err) {
     expressRes.status(500).json({ error: err.message });
   }

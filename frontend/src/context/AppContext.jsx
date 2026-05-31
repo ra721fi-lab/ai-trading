@@ -644,13 +644,16 @@ export const AppProvider = ({ children }) => {
   };
 
   // RESET virtual balance
-  const resetBalance = async () => {
+  const resetBalance = async (amount) => {
     try {
       if (token) {
-        const data = await _fetch('/auth/reset-balance', { method: 'POST' });
+        const data = await _fetch('/auth/reset-balance', { 
+          method: 'POST',
+          body: amount !== undefined ? JSON.stringify({ amount: parseFloat(amount) }) : undefined
+        });
         setUser(prev => ({ ...prev, balance: data.balance }));
       } else {
-        setUser(prev => ({ ...prev, balance: 10000.0 }));
+        setUser(prev => ({ ...prev, balance: amount !== undefined ? parseFloat(amount) : 10000.0 }));
       }
     } catch (err) {
       throw err;
