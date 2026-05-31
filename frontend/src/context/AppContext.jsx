@@ -5,10 +5,10 @@ export const AppContext = createContext();
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const API_BASE = isLocal 
   ? 'http://localhost:5000/api' 
-  : (import.meta.env.VITE_API_URL || 'https://rafi-ai-trading-backend.onrender.com/api');
+  : (import.meta.env.VITE_API_URL || '/api');
 const WS_BASE = isLocal 
   ? 'ws://localhost:5000' 
-  : (import.meta.env.VITE_WS_URL || 'wss://rafi-ai-trading-backend.onrender.com');
+  : (import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/socket.io/`);
 
 export const AppProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('rafi_trading_token') || null);
