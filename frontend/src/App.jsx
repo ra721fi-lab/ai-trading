@@ -151,58 +151,84 @@ function TradingViewChart({ symbol }) {
   const [showAI, setShowAI] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiBriefing, setAiBriefing] = useState(null);
+  const [scriptLoaded, setScriptLoaded] = useState(!!window.TradingView);
+
+  // Dynamic script loader
+  useEffect(() => {
+    if (window.TradingView) {
+      setScriptLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = () => setScriptLoaded(true);
+    script.onerror = () => console.error("TradingView script failed to load");
+    document.body.appendChild(script);
+  }, []);
 
   // Re-instantiate normal chart on symbol change or maximize state change
   useEffect(() => {
-    if (!isMaximized) {
-      setTimeout(() => {
+    if (scriptLoaded && !isMaximized) {
+      const timer = setTimeout(() => {
         if (window.TradingView) {
-          new window.TradingView.widget({
-            width: "100%",
-            height: 440,
-            symbol: `BINANCE:${symbol}`,
-            interval: "15",
-            timezone: "Etc/UTC",
-            theme: "dark",
-            style: "1",
-            locale: "id",
-            toolbar_bg: "#020617",
-            enable_publishing: false,
-            hide_side_toolbar: false,
-            allow_symbol_change: true,
-            container_id: containerId,
-            studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
-          });
+          try {
+            new window.TradingView.widget({
+              width: "100%",
+              height: 440,
+              symbol: `BINANCE:${symbol}`,
+              interval: "15",
+              timezone: "Etc/UTC",
+              theme: "dark",
+              style: "1",
+              locale: "id",
+              toolbar_bg: "#020617",
+              enable_publishing: false,
+              hide_side_toolbar: false,
+              allow_symbol_change: true,
+              container_id: containerId,
+              studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
+            });
+          } catch (e) {
+            console.error("TV widget error:", e);
+          }
         }
-      }, 50);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [symbol, isMaximized]);
+  }, [symbol, isMaximized, scriptLoaded]);
 
   // Re-instantiate fullscreen chart when maximized
   useEffect(() => {
-    if (isMaximized) {
-      setTimeout(() => {
+    if (scriptLoaded && isMaximized) {
+      const timer = setTimeout(() => {
         if (window.TradingView) {
-          new window.TradingView.widget({
-            width: "100%",
-            height: "100%",
-            symbol: `BINANCE:${symbol}`,
-            interval: "15",
-            timezone: "Etc/UTC",
-            theme: "dark",
-            style: "1",
-            locale: "id",
-            toolbar_bg: "#020617",
-            enable_publishing: false,
-            hide_side_toolbar: false,
-            allow_symbol_change: true,
-            container_id: fullscreenContainerId,
-            studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
-          });
+          try {
+            new window.TradingView.widget({
+              width: "100%",
+              height: "100%",
+              symbol: `BINANCE:${symbol}`,
+              interval: "15",
+              timezone: "Etc/UTC",
+              theme: "dark",
+              style: "1",
+              locale: "id",
+              toolbar_bg: "#020617",
+              enable_publishing: false,
+              hide_side_toolbar: false,
+              allow_symbol_change: true,
+              container_id: fullscreenContainerId,
+              studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
+            });
+          } catch (e) {
+            console.error("TV fullscreen widget error:", e);
+          }
         }
-      }, 50);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [symbol, isMaximized]);
+  }, [symbol, isMaximized, scriptLoaded]);
 
   // Reset AI Briefing on symbol change to let user request fresh analysis
   useEffect(() => {
