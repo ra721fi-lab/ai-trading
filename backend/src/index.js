@@ -159,6 +159,9 @@ const startBackgroundScanner = () => {
         // Find high confidence signals (>= 80%)
         const highConfSignals = scannerResults.filter(sig => sig.confidenceScore >= 80);
         
+        const qualifiedTelegramSignals = [];
+        const qualifiedDiscordSignals = [];
+
         for (const signal of highConfSignals) {
           const cacheKey = `${settings.UserId}_${signal.symbol}_${signal.recommendedAction}`;
           const lastSentTime = lastAlertsCache.get(cacheKey) || 0;
@@ -167,20 +170,49 @@ const startBackgroundScanner = () => {
           // Only send the same alert once every 2 hours to avoid chat spam
           if (now - lastSentTime > 2 * 60 * 60 * 1000) {
             if (settings.telegramToken && settings.telegramChatId) {
-              await notifierService.sendTelegramAlert(settings.telegramToken, settings.telegramChatId, signal);
+              qualifiedTelegramSignals.push(signal);
             }
             if (settings.discordWebhook) {
-              await notifierService.sendDiscordAlert(settings.discordWebhook, signal);
+              qualifiedDiscordSignals.push(signal);
             }
+          }
+        }
+
+        // Process Telegram dispatch with anti-spam grouping
+        if (qualifiedTelegramSignals.length > 0) {
+          const now = Date.now();
+          if (qualifiedTelegramSignals.length === 1) {
+            const signal = qualifiedTelegramSignals[0];
+            await notifierService.sendTelegramAlert(settings.telegramToken, settings.telegramChatId, signal);
+            const cacheKey = `${settings.UserId}_${signal.symbol}_${signal.recommendedAction}`;
             lastAlertsCache.set(cacheKey, now);
-            console.log(`[AUTONOMOUS ALERT] Dispatched signal for ${signal.symbol} to User ${settings.UserId}`);
+            console.log(`[AUTONOMOUS TELEGRAM ALERT] Dispatched single signal for ${signal.symbol} to User ${settings.UserId}`);
+          } else {
+            // Group multiple signals into a single digest
+            await notifierService.sendTelegramDigestAlert(settings.telegramToken, settings.telegramChatId, qualifiedTelegramSignals);
+            for (const signal of qualifiedTelegramSignals) {
+              const cacheKey = `${settings.UserId}_${signal.symbol}_${signal.recommendedAction}`;
+              lastAlertsCache.set(cacheKey, now);
+            }
+            console.log(`[AUTONOMOUS TELEGRAM ALERT] Dispatched consolidated digest of ${qualifiedTelegramSignals.length} signals to User ${settings.UserId}`);
+          }
+        }
+
+        // Process Discord dispatch (send individually)
+        if (qualifiedDiscordSignals.length > 0) {
+          const now = Date.now();
+          for (const signal of qualifiedDiscordSignals) {
+            await notifierService.sendDiscordAlert(settings.discordWebhook, signal);
+            const cacheKey = `${settings.UserId}_${signal.symbol}_${signal.recommendedAction}`;
+            lastAlertsCache.set(cacheKey, now);
+            console.log(`[AUTONOMOUS DISCORD ALERT] Dispatched signal for ${signal.symbol} to User ${settings.UserId}`);
           }
         }
       }
     } catch (err) {
       console.error('Autonomous Background Scanner Error:', err.message);
     }
-  }, 2 * 60 * 1000); // Check every 2 minutes for maximum reactivity!
+  }, 10 * 60 * 1000); // Check every 10 minutes to prevent spam!
 };
 
 startServer();

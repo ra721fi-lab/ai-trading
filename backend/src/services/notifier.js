@@ -53,6 +53,56 @@ class NotifierService {
   }
 
   /**
+   * Dispatches a consolidated premium digest of multiple trading signals to Telegram
+   * @param {string} token - Telegram Bot Token
+   * @param {string} chatId - Telegram Chat ID
+   * @param {Array<Object>} signals - List of active signals
+   */
+  async sendTelegramDigestAlert(token, chatId, signals) {
+    if (!token || !chatId || !signals || signals.length === 0) {
+      return { success: true, mode: 'mock' };
+    }
+
+    let message = `⚡ *FUTURES AI MARKET DIGEST* ⚡\n` +
+      `⏱️ _Update scanner real-time setiap 10 menit_\n\n` +
+      `Halo! AI Scanner mendeteksi *${signals.length} peluang trading* premium dengan tingkat keyakinan tinggi (confidence >= 80%):\n\n`;
+
+    signals.forEach((signal, index) => {
+      const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][index] || '▪️';
+      const actionEmoji = signal.recommendedAction === 'BUY' ? '🟢 LONG/BUY' : '🔴 SHORT/SELL';
+      
+      message += `${numberEmoji} *Nama Koin: ${signal.symbol}* (${actionEmoji})\n` +
+        `▪️ *Harga:* $${signal.price} (${signal.changePercent > 0 ? '+' : ''}${signal.changePercent}%)\n` +
+        `▪️ *Trend:* ${signal.trend || 'BULLISH'} | *Confidence:* ${signal.confidenceScore}%\n` +
+        `▪️ *Entry:* $${signal.entry || signal.price}\n` +
+        `▪️ *SL:* $${signal.sl} | *TP1:* $${signal.tp1}\n` +
+        `▪️ *TP2:* $${signal.tp2} | *TP3:* $${signal.tp3}\n` +
+        `▪️ *Risk Reward:* ${signal.riskReward || '1 : 2.5'}\n` +
+        `▪️ *Alasan:* ${signal.alasan || signal.tags.join(', ')}\n\n`;
+    });
+
+    message += `🚀 _Powered by Rafi Pro Trader AI Terminal_ 🚀`;
+
+    try {
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+      const response = await fetchFn(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'Markdown'
+        })
+      });
+      const data = await response.json();
+      return { success: data.ok, data };
+    } catch (err) {
+      console.error(`Telegram Digest Alert Dispatch Failure: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Dispatches trading setup alert to Discord Webhook
    * @param {string} webhookUrl - Discord Webhook URL
    * @param {Object} signal - Signal details
