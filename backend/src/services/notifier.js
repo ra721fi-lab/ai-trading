@@ -1,7 +1,68 @@
-const nativeFetch = typeof globalThis.fetch !== 'undefined' ? globalThis.fetch : null;
-const fetchFn = (...args) => {
-  if (nativeFetch) return nativeFetch(...args);
-  return import('node-fetch').then(({default: f}) => f(...args)).catch(() => {});
+const https = require('https');
+
+const fetchFn = (url, options = {}) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const urlObj = new URL(url);
+      const reqOptions = {
+        method: options.method || 'GET',
+        headers: options.headers || {},
+        hostname: urlObj.hostname,
+        port: 443,
+        path: urlObj.pathname + urlObj.search,
+      };
+
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            json: async () => {
+              try {
+                return JSON.parse(data);
+              } catch (e) {
+                throw new Error('Invalid JSON response');
+              }
+            },
+            text: async () => data
+          });
+        });
+      });
+
+      req.on('error', (err) => {
+        reject(err);
+      });
+
+      if (options.signal) {
+        if (options.signal.aborted) {
+          req.destroy();
+          reject(new Error('Request aborted'));
+          return;
+        }
+        options.signal.addEventListener('abort', () => {
+          req.destroy();
+          reject(new Error('Request aborted'));
+        });
+      }
+
+      const timeoutVal = options.timeout || 10000;
+      req.setTimeout(timeoutVal, () => {
+        req.destroy();
+        reject(new Error(`Timeout after ${timeoutVal}ms`));
+      });
+
+      if (options.body) {
+        req.write(options.body);
+      }
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 };
 
 class NotifierService {
