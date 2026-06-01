@@ -187,13 +187,31 @@ export const AppProvider = ({ children }) => {
       setStrategies(getOfflineStrategies());
       setTrades(getOfflineTrades());
       setMissions(getOfflineMissions());
-      setSettings({
-        telegramToken: '',
-        telegramChatId: '',
-        discordWebhook: '',
-        emailAlerts: false,
-        pushNotifications: true
-      });
+      
+      // Preserve settings from localStorage instead of clearing them
+      try {
+        const saved = localStorage.getItem('rafi_trading_settings');
+        if (saved) {
+          setSettings(JSON.parse(saved));
+        } else {
+          setSettings({
+            telegramToken: '',
+            telegramChatId: '',
+            discordWebhook: '',
+            emailAlerts: false,
+            pushNotifications: true
+          });
+        }
+      } catch (e) {
+        setSettings({
+          telegramToken: '',
+          telegramChatId: '',
+          discordWebhook: '',
+          emailAlerts: false,
+          pushNotifications: true
+        });
+      }
+
       setEvalData(getOfflineEval(getOfflineTrades()));
     }
   }, [token]);
