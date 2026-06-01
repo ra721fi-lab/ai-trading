@@ -140,10 +140,80 @@ function AuthScreen() {
 }
 
 // ==========================================
+// TRADINGVIEW INTERACTIVE PRICE CHART WIDGET
+// ==========================================
+function TradingViewChart({ symbol }) {
+  const containerId = "tradingview_chart_container";
+
+  useEffect(() => {
+    // If window.TradingView is already loaded, instantiate the widget
+    if (window.TradingView) {
+      new window.TradingView.widget({
+        width: "100%",
+        height: 440,
+        symbol: `BINANCE:${symbol}`,
+        interval: "15",
+        timezone: "Etc/UTC",
+        theme: "dark",
+        style: "1",
+        locale: "id",
+        toolbar_bg: "#020617",
+        enable_publishing: false,
+        hide_side_toolbar: false,
+        allow_symbol_change: true,
+        container_id: containerId,
+        studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
+      });
+      return;
+    }
+
+    // Otherwise, load the script dynamically
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = () => {
+      if (window.TradingView) {
+        new window.TradingView.widget({
+          width: "100%",
+          height: 440,
+          symbol: `BINANCE:${symbol}`,
+          interval: "15",
+          timezone: "Etc/UTC",
+          theme: "dark",
+          style: "1",
+          locale: "id",
+          toolbar_bg: "#020617",
+          enable_publishing: false,
+          hide_side_toolbar: false,
+          allow_symbol_change: true,
+          container_id: containerId,
+          studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
+        });
+      }
+    };
+    document.body.appendChild(script);
+  }, [symbol]);
+
+  return (
+    <div className="glassmorphism rounded-xl p-5 border-neon-blue bg-slate-950/40 relative overflow-hidden flex flex-col h-full">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-md font-bold font-tech text-cyan-400 flex items-center gap-2 uppercase tracking-wider">
+          <Activity className="w-5 h-5 animate-pulse" /> LIVE CHART STREAM
+        </h2>
+        <span className="text-xs font-tech text-cyan-300 font-bold uppercase tracking-widest px-3 py-1 rounded bg-cyan-950/70 border border-cyan-500/35 shadow shadow-cyan-500/20">
+          {symbol}
+        </span>
+      </div>
+      <div id={containerId} className="w-full flex-1 rounded-lg overflow-hidden border border-cyan-500/10 mt-3" style={{ minHeight: "440px" }} />
+    </div>
+  );
+}
+
+// ==========================================
 // 1. TERMINAL DASHBOARD
 // ==========================================
 function TerminalDashboard() {
-  const { user, tickers, liveAlerts, evalData, speakAI, resetBalance, setActiveTab } = useContext(AppContext);
+  const { user, tickers, liveAlerts, evalData, speakAI, resetBalance, setActiveTab, selectedSymbol, setSelectedSymbol } = useContext(AppContext);
 
   const handleResetClick = async () => {
     const val = prompt("Masukkan nominal saldo virtual baru Anda (USD):", user?.balance || "10000");
@@ -215,73 +285,93 @@ function TerminalDashboard() {
         </motion.div>
       </div>
 
-      {/* Main Terminal Dashboard Panel */}
+      {/* Main Terminal Dashboard Panel with TradingView Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Market Pricing Heatmap Grid */}
-        <div className="lg:col-span-2 glassmorphism rounded-xl p-6 border-neon-blue flex flex-col justify-between">
-          <div>
-            <h2 className="text-lg font-bold font-tech text-cyan-400 mb-4 flex items-center gap-2">
-              <Compass className="w-5 h-5" /> CRYPTO REAL-TIME TERMINAL
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {tickers.map((t, idx) => {
-                const isGreen = t.changePercent >= 0;
-                return (
-                  <motion.div
-                    key={t.symbol}
-                    whileHover={{ scale: 1.03, y: -2 }}
-                    className={`heatmap-cell p-4 rounded-lg border ${
-                      isGreen ? 'bg-emerald-950/20 border-emerald-500/20 hover:border-emerald-400' : 'bg-rose-950/20 border-rose-500/20 hover:border-rose-400'
-                    }`}
-                  >
-                    <p className="text-sm font-bold font-tech text-slate-200">{t.symbol.replace('USDT', '')}</p>
-                    <p className="text-lg font-bold font-tech text-slate-100 mt-1">${t.price?.toLocaleString(undefined, {maximumFractionDigits: t.price > 1 ? 2 : 4})}</p>
-                    <span className={`text-xs font-tech flex items-center gap-1 mt-1 ${isGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {isGreen ? '▲' : '▼'} {t.changePercent?.toFixed(2)}%
-                    </span>
-                  </motion.div>
-                );
-              })}
+        {/* Left Column: Interactive Price Chart */}
+        <div className="lg:col-span-2 min-h-[480px]">
+          <TradingViewChart symbol={selectedSymbol} />
+        </div>
+
+        {/* Right Column: Watchlist & Breakout Alerts */}
+        <div className="space-y-6 lg:col-span-1 flex flex-col justify-between h-full">
+          {/* Market Watchlist */}
+          <div className="glassmorphism rounded-xl p-6 border-neon-blue flex-1 flex flex-col justify-between">
+            <div>
+              <h2 className="text-md font-bold font-tech text-cyan-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                <Compass className="w-5 h-5" /> MARKET WATCHLIST
+              </h2>
+              <div className="overflow-y-auto space-y-2.5 max-h-[220px] pr-2 scrollbar-thin">
+                {tickers.map((t) => {
+                  const isGreen = t.changePercent >= 0;
+                  const isSelected = t.symbol === selectedSymbol;
+                  return (
+                    <motion.div
+                      key={t.symbol}
+                      onClick={() => setSelectedSymbol(t.symbol)}
+                      whileHover={{ scale: 1.02 }}
+                      className={`p-3 rounded-lg border cursor-pointer flex justify-between items-center transition-all ${
+                        isSelected 
+                          ? 'border-cyan-400 bg-cyan-950/20 shadow-neon-blue'
+                          : isGreen ? 'bg-emerald-950/10 border-emerald-500/10 hover:border-emerald-400/40' : 'bg-rose-950/10 border-rose-500/10 hover:border-rose-400/40'
+                      }`}
+                    >
+                      <span className="font-bold text-slate-200 font-tech text-xs">{t.symbol.replace('USDT', '')}</span>
+                      <div className="text-right">
+                        <p className="font-tech font-bold text-xs text-slate-100">${t.price?.toLocaleString(undefined, {maximumFractionDigits: t.price > 1 ? 2 : 4})}</p>
+                        <span className={`text-[10px] font-tech font-bold flex items-center justify-end gap-0.5 ${isGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isGreen ? '▲' : '▼'} {t.changePercent?.toFixed(2)}%
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-cyan-500/10 flex items-center justify-between text-[10px] text-cyan-300/40 font-tech">
+              <span>Binance Live Feed Stream</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" /> Connection Stable
+              </span>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-cyan-500/10 flex flex-col sm:flex-row items-center justify-between text-xs text-cyan-300/40 font-tech">
-            <span>Powered by Binance Live REST & Websocket API</span>
-            <span className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" /> Connection Stable
-            </span>
-          </div>
-        </div>
-
-        {/* Live Breakout Alert Tracker */}
-        <div className="glassmorphism rounded-xl p-6 border-neon-purple flex flex-col">
-          <h2 className="text-lg font-bold font-tech text-purple-400 mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5" /> LIVE SCANNED BREAKOUT ALERTS
-          </h2>
-          <div className="flex-1 overflow-y-auto space-y-3 max-h-[300px] pr-2">
-            {liveAlerts.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-cyan-300/20 font-tech py-12">
-                <RefreshCw className="w-8 h-8 animate-spin mb-2" />
-                <p className="text-xs uppercase">Menunggu scan pasar pertama...</p>
+          {/* Live Breakout Alert Tracker */}
+          <div className="glassmorphism rounded-xl p-6 border-neon-purple flex-1 flex flex-col justify-between">
+            <div>
+              <h2 className="text-md font-bold font-tech text-purple-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                <Activity className="w-5 h-5 animate-pulse" /> BREAKOUT ALERTS
+              </h2>
+              <div className="overflow-y-auto space-y-2.5 max-h-[180px] pr-2 scrollbar-thin">
+                {liveAlerts.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-cyan-300/20 font-tech py-8">
+                    <RefreshCw className="w-6 h-6 animate-spin mb-2" />
+                    <p className="text-[10px] uppercase">Menunggu scan pasar...</p>
+                  </div>
+                ) : (
+                  liveAlerts.map((alert, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedSymbol(alert.symbol)}
+                      className="p-2.5 rounded-lg bg-slate-950/60 border border-purple-500/10 flex justify-between items-center text-[11px] cursor-pointer hover:border-purple-500/35 transition-all"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-200 font-tech">{alert.symbol}</span>
+                        <p className="text-[9px] text-cyan-300/50 mt-0.5">{new Date(alert.timestamp).toLocaleTimeString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-tech font-bold ${
+                          alert.type.includes('UP') || alert.type.includes('WHALE') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                        }`}>
+                          {alert.type}
+                        </span>
+                        <p className="text-slate-100 font-tech font-bold mt-0.5">${alert.price?.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            ) : (
-              liveAlerts.map((alert, i) => (
-                <div key={i} className="p-3 rounded-lg bg-slate-950/60 border border-purple-500/10 flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-bold text-slate-200 font-tech">{alert.symbol}</span>
-                    <p className="text-[10px] text-cyan-300/50 mt-0.5">{new Date(alert.timestamp).toLocaleTimeString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-tech font-bold ${
-                      alert.type.includes('UP') || alert.type.includes('WHALE') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                    }`}>
-                      {alert.type}
-                    </span>
-                    <p className="text-slate-100 font-tech font-bold mt-1">${alert.price?.toFixed(2)}</p>
-                  </div>
-                </div>
-              ))
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -310,7 +400,7 @@ function TerminalDashboard() {
 // 2. AI MARKET SCANNER
 // ==========================================
 function MarketScanner() {
-  const { scannerResults, runLiveScanner, loading, t, user, setPrefilledTrade, setActiveTab } = useContext(AppContext);
+  const { scannerResults, runLiveScanner, loading, t, user, setPrefilledTrade, setActiveTab, setSelectedSymbol } = useContext(AppContext);
   const [filterRsi, setFilterRsi] = useState('');
   const [filterAction, setFilterAction] = useState('ALL');
   
@@ -637,14 +727,26 @@ function MarketScanner() {
                   </div>
                 </div>
 
-                {/* Sizing AI Action Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveSizingModal(item)}
-                  className="w-full py-2 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 hover:from-purple-500/35 hover:to-cyan-500/35 border border-purple-500/30 hover:border-cyan-400/60 text-slate-100 font-bold font-tech text-[11px] uppercase rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.01]"
-                >
-                  <BarChart3 className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> 📊 Sizing AI
-                </button>
+                {/* Actions Grid */}
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSizingModal(item)}
+                    className="py-2 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 hover:from-purple-500/35 hover:to-cyan-500/35 border border-purple-500/30 hover:border-cyan-400/60 text-slate-100 font-bold font-tech text-[10px] uppercase rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md hover:scale-[1.01]"
+                  >
+                    <BarChart3 className="w-3 h-3 text-cyan-400" /> Sizing AI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSymbol(item.symbol);
+                      setActiveTab('dashboard');
+                    }}
+                    className="py-2 bg-slate-950/60 hover:bg-cyan-500/15 border border-cyan-500/25 hover:border-cyan-400 text-cyan-400 font-bold font-tech text-[10px] uppercase rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md hover:scale-[1.01]"
+                  >
+                    <TrendingUp className="w-3 h-3 text-cyan-400 animate-pulse" /> Lihat Chart
+                  </button>
+                </div>
 
                 <div className="pt-3 border-t border-cyan-500/10 flex justify-between items-center text-[10px] font-tech text-cyan-300/30">
                   <span>Last Price: ${item.price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>

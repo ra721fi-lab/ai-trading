@@ -54,6 +54,7 @@ export const AppProvider = ({ children }) => {
 
   const [evalData, setEvalData] = useState(null);
   const [scannerResults, setScannerResults] = useState([]);
+  const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
   
   // UI States
   const [isVoiceActive, setIsVoiceActive] = useState(false);
@@ -792,7 +793,8 @@ export const AppProvider = ({ children }) => {
       ambientGlow, setAmbientGlow,
       registerUser,
       loginUser,
-      language, setLanguage, t
+      language, setLanguage, t,
+      selectedSymbol, setSelectedSymbol
     }}>
       {children}
     </AppContext.Provider>
