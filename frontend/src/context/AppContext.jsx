@@ -43,6 +43,15 @@ export const AppProvider = ({ children }) => {
   
   // UI States
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [prefilledTrade, setPrefilledTrade] = useState(null);
+  const [ambientGlow, setAmbientGlow] = useState(() => {
+    const saved = localStorage.getItem('rafi_trading_glow');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rafi_trading_glow', ambientGlow);
+  }, [ambientGlow]);
 
   const wsRef = useRef(null);
 
@@ -740,6 +749,8 @@ export const AppProvider = ({ children }) => {
       logoutUser,
       speakAI,
       isVoiceActive,
+      prefilledTrade, setPrefilledTrade,
+      ambientGlow, setAmbientGlow,
       registerUser,
       loginUser,
       language, setLanguage, t

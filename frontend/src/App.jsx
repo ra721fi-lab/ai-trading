@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppProvider, AppContext } from './context/AppContext';
 import { 
   TrendingUp, Activity, Terminal, BookOpen, BarChart3, Settings, 
@@ -18,7 +18,7 @@ function AuthScreen() {
   const [password, setPassword] = useState('');
   const [alert, setAlert] = useState(null);
 
-  const { loginUser, registerUser } = useContext(AppContext);
+  const { loginUser, registerUser, ambientGlow } = useContext(AppContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,8 +37,12 @@ function AuthScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center relative px-4 overflow-hidden bg-radial-gradient">
       {/* Background Animated Neon Circles */}
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] pointer-events-none" />
+      {ambientGlow && (
+        <>
+          <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] pointer-events-none" />
+        </>
+      )}
 
       {/* Cyber Grid Background */}
       <div className="absolute inset-0 cyber-grid opacity-30 pointer-events-none" />
@@ -139,7 +143,7 @@ function AuthScreen() {
 // 1. TERMINAL DASHBOARD
 // ==========================================
 function TerminalDashboard() {
-  const { user, tickers, liveAlerts, evalData, speakAI, resetBalance } = useContext(AppContext);
+  const { user, tickers, liveAlerts, evalData, speakAI, resetBalance, setActiveTab } = useContext(AppContext);
 
   const handleResetClick = async () => {
     const val = prompt("Masukkan nominal saldo virtual baru Anda (USD):", user?.balance || "10000");
@@ -161,11 +165,11 @@ function TerminalDashboard() {
     <div className="space-y-6">
       {/* Top Banner Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-blue flex items-center justify-between">
+        <motion.div onClick={handleResetClick} whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-blue flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-xs font-tech text-cyan-400 uppercase tracking-wider">Virtual Balance</p>
             <p className="text-2xl font-bold font-tech text-slate-100 mt-1">${user?.balance?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '10,000.00'}</p>
-            <button onClick={handleResetClick} className="text-[10px] text-cyan-300/40 hover:text-cyan-300 hover:underline mt-2 flex items-center gap-1 font-tech uppercase">
+            <button className="text-[10px] text-cyan-300/40 hover:text-cyan-300 hover:underline mt-2 flex items-center gap-1 font-tech uppercase">
               <RefreshCw className="w-2.5 h-2.5" /> Adjust Balance
             </button>
           </div>
@@ -174,7 +178,7 @@ function TerminalDashboard() {
           </div>
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-purple flex items-center justify-between">
+        <motion.div onClick={() => setActiveTab('evaluation')} whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-purple flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-xs font-tech text-purple-400 uppercase tracking-wider">Discipline Index</p>
             <p className="text-2xl font-bold font-tech text-slate-100 mt-1">{evalData?.disciplineScore || 85}/100</p>
@@ -185,7 +189,7 @@ function TerminalDashboard() {
           </div>
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-green flex items-center justify-between">
+        <motion.div onClick={() => setActiveTab('evaluation')} whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-green flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-xs font-tech text-emerald-400 uppercase tracking-wider">Win Rate Score</p>
             <p className="text-2xl font-bold font-tech text-emerald-400 mt-1">{evalData?.winrate || 62}%</p>
@@ -197,7 +201,7 @@ function TerminalDashboard() {
         </motion.div>
 
         {/* Fear & Greed Index Gauge */}
-        <motion.div whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-magenta flex items-center justify-between">
+        <motion.div onClick={() => setActiveTab('scanner')} whileHover={{ scale: 1.02 }} className="glassmorphism rounded-xl p-5 border-neon-magenta flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-xs font-tech text-pink-400 uppercase tracking-wider">Fear & Greed Index</p>
             <p className="text-2xl font-bold font-tech text-pink-400 mt-1">68 (Greed)</p>
@@ -306,7 +310,7 @@ function TerminalDashboard() {
 // 2. AI MARKET SCANNER
 // ==========================================
 function MarketScanner() {
-  const { scannerResults, runLiveScanner, loading, t } = useContext(AppContext);
+  const { scannerResults, runLiveScanner, loading, t, user, setPrefilledTrade, setActiveTab } = useContext(AppContext);
   const [filterRsi, setFilterRsi] = useState('');
   const [filterAction, setFilterAction] = useState('ALL');
   
@@ -316,6 +320,26 @@ function MarketScanner() {
   const [emaShort, setEmaShort] = useState('20');
   const [emaLong, setEmaLong] = useState('50');
   const [showConfig, setShowConfig] = useState(false);
+
+  // Sizing Modal States
+  const [activeSizingModal, setActiveSizingModal] = useState(null);
+  const [modalRisk, setModalRisk] = useState('1');
+  const [modalLeverage, setModalLeverage] = useState('10');
+  const [modalEntry, setModalEntry] = useState('');
+  const [modalSL, setModalSL] = useState('');
+  const [modalType, setModalType] = useState('LONG');
+
+  // Initialize Sizing Modal Params when activeSizingModal is set
+  useEffect(() => {
+    if (activeSizingModal) {
+      setModalEntry(activeSizingModal.entry ? activeSizingModal.entry.toString() : activeSizingModal.price.toString());
+      const entryPriceVal = activeSizingModal.entry || activeSizingModal.price;
+      const stopLossPriceVal = activeSizingModal.sl || (entryPriceVal * 0.98);
+      const recommendedSLPct = Math.min(20, Math.max(0.5, (Math.abs(entryPriceVal - stopLossPriceVal) / entryPriceVal * 100)));
+      setModalSL(recommendedSLPct.toFixed(2));
+      setModalType(activeSizingModal.trend === 'BEARISH' || activeSizingModal.recommendedAction?.includes('SELL') ? 'SHORT' : 'LONG');
+    }
+  }, [activeSizingModal]);
 
   const filteredScanner = scannerResults.filter(item => {
     if (filterAction !== 'ALL' && item.recommendedAction !== filterAction) return false;
@@ -613,6 +637,15 @@ function MarketScanner() {
                   </div>
                 </div>
 
+                {/* Sizing AI Action Button */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSizingModal(item)}
+                  className="w-full py-2 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 hover:from-purple-500/35 hover:to-cyan-500/35 border border-purple-500/30 hover:border-cyan-400/60 text-slate-100 font-bold font-tech text-[11px] uppercase rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.01]"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> 📊 Sizing AI
+                </button>
+
                 <div className="pt-3 border-t border-cyan-500/10 flex justify-between items-center text-[10px] font-tech text-cyan-300/30">
                   <span>Last Price: ${item.price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>
                   <span className={item.changePercent >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
@@ -622,6 +655,173 @@ function MarketScanner() {
               </motion.div>
             );
           })}
+        </div>
+      )}
+
+      {/* AI Sizing Calculator Modal popup */}
+      {activeSizingModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-lg glassmorphism-purple border-neon-purple rounded-2xl p-6 space-y-4 relative shadow-2xl glow-purple"
+          >
+            {/* Modal Close button */}
+            <button 
+              onClick={() => setActiveSizingModal(null)} 
+              className="absolute top-4 right-4 text-purple-300/60 hover:text-purple-300 cursor-pointer font-bold transition-colors"
+            >
+              ✕
+            </button>
+            
+            <h3 className="text-md font-bold font-tech text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400 uppercase tracking-widest border-b border-purple-500/20 pb-3.5 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
+              AI Sizing Calculator ({activeSizingModal.symbol})
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-tech text-xs">
+              {/* Left Column: Inputs */}
+              <div className="space-y-3">
+                <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Parameters</p>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] text-purple-300/70 uppercase">Virtual Balance ($)</label>
+                  <input
+                    type="number"
+                    value={user?.balance || 10000}
+                    disabled
+                    className="w-full bg-slate-950/85 border border-purple-500/25 rounded-lg py-1.5 px-3 text-slate-400 cursor-not-allowed font-bold font-tech"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-purple-300/70 uppercase">Risk (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={modalRisk}
+                      onChange={(e) => setModalRisk(e.target.value)}
+                      className="w-full bg-slate-950/85 border border-purple-500/20 rounded-lg py-1.5 px-3 text-slate-200 focus:outline-none focus:border-purple-400 font-tech"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-purple-300/70 uppercase">Leverage</label>
+                    <input
+                      type="number"
+                      value={modalLeverage}
+                      onChange={(e) => setModalLeverage(e.target.value)}
+                      className="w-full bg-slate-950/85 border border-purple-500/20 rounded-lg py-1.5 px-3 text-slate-200 focus:outline-none focus:border-purple-400 font-tech"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-purple-300/70 uppercase">Entry Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={modalEntry}
+                      onChange={(e) => setModalEntry(e.target.value)}
+                      className="w-full bg-slate-950/85 border border-purple-500/20 rounded-lg py-1.5 px-3 text-slate-200 focus:outline-none focus:border-purple-400 font-bold font-tech"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-purple-300/70 uppercase">Stop Loss (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={modalSL}
+                      onChange={(e) => setModalSL(e.target.value)}
+                      className="w-full bg-slate-950/85 border border-purple-500/20 rounded-lg py-1.5 px-3 text-slate-200 focus:outline-none focus:border-purple-400 font-tech"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-1.5">
+                  <span className="text-[9px] text-purple-300/70 uppercase block mb-1">Position Type</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalType('LONG')}
+                      className={`flex-1 py-1.5 rounded font-bold border transition-all cursor-pointer text-[10px] font-tech ${
+                        modalType === 'LONG' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 glow-green' : 'bg-slate-950 border-purple-500/10 text-purple-300/40'
+                      }`}
+                    >
+                      🟢 LONG
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalType('SHORT')}
+                      className={`flex-1 py-1.5 rounded font-bold border transition-all cursor-pointer text-[10px] font-tech ${
+                        modalType === 'SHORT' ? 'bg-rose-500/20 border-rose-500 text-rose-400 glow-magenta' : 'bg-slate-950 border-purple-500/10 text-purple-300/40'
+                      }`}
+                    >
+                      🔴 SHORT
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Estimates & Output */}
+              <div className="space-y-3 border-t md:border-t-0 md:border-l border-purple-500/10 pt-3 md:pt-0 md:pl-5 flex flex-col justify-between font-tech">
+                <div>
+                  <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-2">Estimations</p>
+                  
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center bg-slate-950/50 p-2 rounded border border-purple-500/5">
+                      <span className="text-slate-400">Amount to Risk:</span>
+                      <span className="font-bold text-slate-100">${( (user?.balance || 10000) * (parseFloat(modalRisk) || 1) / 100 ).toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-slate-950/50 p-2 rounded border border-purple-500/5">
+                      <span className="text-slate-400">Position Size:</span>
+                      <span className="font-bold text-cyan-400">${( ((user?.balance || 10000) * (parseFloat(modalRisk) || 1) / 100) / ((parseFloat(modalSL) || 2) / 100) ).toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-slate-950/50 p-2 rounded border border-purple-500/5">
+                      <span className="text-slate-400">Req. Margin:</span>
+                      <span className="font-bold text-purple-300">${( (((user?.balance || 10000) * (parseFloat(modalRisk) || 1) / 100) / ((parseFloat(modalSL) || 2) / 100)) / (parseFloat(modalLeverage) || 10) ).toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-slate-950/50 p-2 rounded border border-purple-500/5">
+                      <span className="text-slate-400">Stop Loss Price:</span>
+                      <span className="font-bold text-rose-400">${( modalType === 'LONG' ? (parseFloat(modalEntry) || 0) * (1 - (parseFloat(modalSL) || 2) / 100) : (parseFloat(modalEntry) || 0) * (1 + (parseFloat(modalSL) || 2) / 100) ).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Settle / Bridge button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const balanceVal = user?.balance || 10000;
+                    const riskVal = parseFloat(modalRisk) || 1;
+                    const slVal = parseFloat(modalSL) || 2;
+                    const posSizeVal = (balanceVal * (riskVal / 100)) / (slVal / 100);
+                    const qtyVal = posSizeVal / (parseFloat(modalEntry) || 1);
+                    
+                    setPrefilledTrade({
+                      pair: activeSizingModal.symbol,
+                      type: modalType === 'LONG' ? 'BUY' : 'SELL',
+                      entryPrice: parseFloat(modalEntry) || 0,
+                      amount: parseFloat(qtyVal.toFixed(4)),
+                      reason: `AI Sizing Trade: Risk ${riskVal}% per Posisi dengan Stop Loss ${slVal}% (SMC Target).`,
+                      emotion: 'Calm',
+                      notes: `Sizing AI Bridge execution. Target SL Price: $${(modalType === 'LONG' ? (parseFloat(modalEntry) || 0) * (1 - slVal/100) : (parseFloat(modalEntry) || 0) * (1 + slVal/100)).toFixed(2)}`
+                    });
+                    
+                    setActiveSizingModal(null);
+                    setActiveTab('journal');
+                  }}
+                  className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-slate-950 font-bold font-tech text-xs uppercase rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all border border-purple-400 hover:shadow-lg hover:shadow-purple-500/25 mt-3"
+                >
+                  <Send className="w-3.5 h-3.5 text-slate-950 shrink-0" /> 📝 Kirim ke Jurnal
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>
@@ -1015,7 +1215,7 @@ function StrategyBuilder() {
 // 4. AI TRADING JOURNAL & CALENDAR
 // ==========================================
 function TradingJournal() {
-  const { trades, openTrade, closeTrade, deleteTrade } = useContext(AppContext);
+  const { trades, openTrade, closeTrade, deleteTrade, tickers, prefilledTrade, setPrefilledTrade } = useContext(AppContext);
   const [pair, setPair] = useState('BTCUSDT');
   const [type, setType] = useState('BUY');
   const [entryPrice, setEntryPrice] = useState('');
@@ -1023,6 +1223,32 @@ function TradingJournal() {
   const [reason, setReason] = useState('');
   const [emotion, setEmotion] = useState('Calm');
   const [notes, setNotes] = useState('');
+
+  // Prefill from Live Ticker when Pair changes
+  useEffect(() => {
+    if (tickers && tickers.length > 0) {
+      const match = tickers.find(t => t.symbol === pair);
+      if (match) {
+        setEntryPrice(match.price.toString());
+      }
+    }
+  }, [pair]);
+
+  // Handle Bridged Trade Prefills (e.g. from Scanner Sizing Modal)
+  useEffect(() => {
+    if (prefilledTrade) {
+      if (prefilledTrade.pair) setPair(prefilledTrade.pair);
+      if (prefilledTrade.type) setType(prefilledTrade.type);
+      if (prefilledTrade.entryPrice) setEntryPrice(prefilledTrade.entryPrice.toString());
+      if (prefilledTrade.amount) setAmount(prefilledTrade.amount.toString());
+      if (prefilledTrade.reason) setReason(prefilledTrade.reason);
+      if (prefilledTrade.emotion) setEmotion(prefilledTrade.emotion);
+      if (prefilledTrade.notes) setNotes(prefilledTrade.notes);
+      
+      // Consume the prefilled data
+      setPrefilledTrade(null);
+    }
+  }, [prefilledTrade, setPrefilledTrade]);
 
   // Close trade popover form inputs
   const [closingId, setClosingId] = useState(null);
@@ -2029,7 +2255,7 @@ function SettingsTab() {
 // MAIN DASHBOARD LAYOUT SHELL
 // ==========================================
 function TerminalShell() {
-  const { user, logoutUser, activeTab, setActiveTab, language, setLanguage, t } = useContext(AppContext);
+  const { user, logoutUser, activeTab, setActiveTab, language, setLanguage, t, ambientGlow, setAmbientGlow } = useContext(AppContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
@@ -2053,11 +2279,11 @@ function TerminalShell() {
   };
 
   const navItems = [
-    { id: 'dashboard', label: t('dashboard'), icon: Terminal },
-    { id: 'scanner', label: t('scanner'), icon: Search },
+    { id: 'dashboard', label: t('dashboard'), icon: Terminal, badge: 'LIVE', badgeColor: 'bg-emerald-500/25 border-emerald-500/40 text-emerald-300' },
+    { id: 'scanner', label: t('scanner'), icon: Search, badge: 'SMC', badgeColor: 'bg-cyan-500/25 border-cyan-500/40 text-cyan-300 glow-blue animate-pulse' },
     { id: 'strategy', label: t('strategy'), icon: Compass },
     { id: 'journal', label: t('journal'), icon: BookOpen },
-    { id: 'evaluation', label: t('evaluator'), icon: BarChart3 },
+    { id: 'evaluation', label: t('evaluator'), icon: BarChart3, badge: 'COGNITIVE', badgeColor: 'bg-purple-500/25 border-purple-500/40 text-purple-300 glow-purple' },
     { id: 'paper-trading', label: t('backtest'), icon: Play },
     { id: 'settings', label: t('settings'), icon: Settings },
   ];
@@ -2066,6 +2292,15 @@ function TerminalShell() {
     <div className="min-h-screen flex flex-col md:flex-row relative">
       {/* Dynamic Grid Overlay */}
       <div className="absolute inset-0 cyber-grid opacity-20 pointer-events-none" />
+
+      {/* Cyber Ambient Glow background elements */}
+      {ambientGlow && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/5 rounded-full blur-[150px] animate-pulse" />
+          <div className="absolute top-1/3 right-0 w-80 h-80 bg-purple-500/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[200px] animate-pulse-slow" />
+        </div>
+      )}
 
       {/* Cyberpunk Navigation Sidebar */}
       <aside className="w-full md:w-64 glassmorphism border-r border-cyan-500/10 flex flex-col justify-between shrink-0 relative z-20">
@@ -2084,7 +2319,7 @@ function TerminalShell() {
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-4 space-y-2">
+          <nav className="p-4 space-y-2 font-tech">
             {navItems.map((item) => {
               const active = activeTab === item.id;
               const Icon = item.icon;
@@ -2092,12 +2327,19 @@ function TerminalShell() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-bold font-tech uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold font-tech uppercase tracking-wider transition-all cursor-pointer ${
                     active ? 'bg-cyan-500/15 border border-cyan-500/35 text-cyan-300 glow-blue' : 'text-cyan-300/40 hover:text-cyan-300 hover:bg-slate-950/40'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${active ? 'text-cyan-400' : ''}`} />
-                  {item.label}
+                  <div className="flex items-center gap-3.5 flex-1">
+                    <Icon className={`w-4 h-4 ${active ? 'text-cyan-400' : ''}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-tech font-bold uppercase tracking-widest border shrink-0 ${item.badgeColor}`}>
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -2106,22 +2348,37 @@ function TerminalShell() {
 
         {/* Language & User Account panel */}
         <div className="p-4 border-t border-cyan-500/10 space-y-3.5">
-          {/* Quick Language Selector */}
-          <div className="flex items-center justify-between px-2 text-[10px] font-tech text-cyan-300/40 uppercase font-bold tracking-wider">
-            <span>{t('changeLanguage')}</span>
-            <div className="flex gap-1.5 bg-slate-950/80 border border-cyan-500/15 rounded px-1.5 py-0.5">
+          {/* Quick Language & Glow Selector */}
+          <div className="flex flex-col gap-2.5 px-2 text-[10px] font-tech text-cyan-300/40 uppercase font-bold tracking-wider">
+            <div className="flex items-center justify-between">
+              <span>{t('changeLanguage')}</span>
+              <div className="flex gap-1.5 bg-slate-950/80 border border-cyan-500/15 rounded px-1.5 py-0.5">
+                <button 
+                  onClick={() => setLanguage('id')} 
+                  className={`cursor-pointer transition-all ${language === 'id' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
+                >
+                  ID
+                </button>
+                <span className="text-cyan-500/10">|</span>
+                <button 
+                  onClick={() => setLanguage('en')} 
+                  className={`cursor-pointer transition-all ${language === 'en' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between border-t border-cyan-500/5 pt-2">
+              <span>Ambient Glow</span>
               <button 
-                onClick={() => setLanguage('id')} 
-                className={`cursor-pointer transition-all ${language === 'id' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
+                onClick={() => setAmbientGlow(!ambientGlow)}
+                className={`flex items-center gap-1.5 bg-slate-950/80 border rounded px-2 py-0.5 cursor-pointer transition-all ${
+                  ambientGlow ? 'text-cyan-300 border-cyan-500/40 glow-blue' : 'text-cyan-300/20 border-cyan-500/15'
+                }`}
               >
-                ID
-              </button>
-              <span className="text-cyan-500/10">|</span>
-              <button 
-                onClick={() => setLanguage('en')} 
-                className={`cursor-pointer transition-all ${language === 'en' ? 'text-cyan-300 font-bold' : 'text-cyan-300/20'}`}
-              >
-                EN
+                <span className={`w-1.5 h-1.5 rounded-full ${ambientGlow ? 'bg-cyan-400 animate-pulse glow-green' : 'bg-slate-700'}`} />
+                {ambientGlow ? 'ON' : 'OFF'}
               </button>
             </div>
           </div>
