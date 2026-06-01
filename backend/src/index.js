@@ -79,7 +79,7 @@ wss.on('connection', (ws) => {
     } catch (err) {
       console.error('WS stream error:', err.message);
     }
-  }, 3000); // Send updates every 3 seconds!
+  }, 1000); // Send updates every 1 second (Ultra Low Latency Real-Time)!
 
   ws.on('close', () => {
     clearInterval(interval);

@@ -36,6 +36,59 @@ class BinanceService {
   }
 
   /**
+   * Fetch fallback prices from CoinGecko API
+   */
+  async getCoinGeckoPrices() {
+    try {
+      const ids = 'bitcoin,ethereum,solana,binancecoin,dogecoin,ripple,cardano,avalanche-2,near,chainlink,polkadot,matic-network';
+      const response = await fetchFn(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true`, { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined });
+      if (response && response.ok) {
+        const json = await response.json();
+        const mapping = {
+          'BTCUSDT': { id: 'bitcoin', base: 77000 },
+          'ETHUSDT': { id: 'ethereum', base: 3800 },
+          'SOLUSDT': { id: 'solana', base: 180 },
+          'BNBUSDT': { id: 'binancecoin', base: 610 },
+          'DOGEUSDT': { id: 'dogecoin', base: 0.15 },
+          'XRPUSDT': { id: 'ripple', base: 0.56 },
+          'ADAUSDT': { id: 'cardano', base: 0.46 },
+          'AVAXUSDT': { id: 'avalanche-2', base: 37 },
+          'NEARUSDT': { id: 'near', base: 6.6 },
+          'LINKUSDT': { id: 'chainlink', base: 17.8 },
+          'DOTUSDT': { id: 'polkadot', base: 7.0 },
+          'MATICUSDT': { id: 'matic-network', base: 0.70 }
+        };
+
+        const list = POPULAR_PAIRS.map(symbol => {
+          const entry = mapping[symbol];
+          const data = json[entry.id];
+          if (data) {
+            const price = data.usd || entry.base;
+            const changePercent = data.usd_24h_change || 0;
+            const volume = data.usd_24h_vol || 1000000;
+            return {
+              symbol,
+              price,
+              changePercent,
+              high: price * 1.015,
+              low: price * 0.985,
+              volume,
+              quoteVolume: volume * price,
+              count: 8000
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (list.length > 0) return list;
+      }
+    } catch (err) {
+      // console.warn('CoinGecko fallback error:', err.message);
+    }
+    return null;
+  }
+
+  /**
    * Fetch 24-hour ticker statistics for scanned pairs
    */
   async getMarketTickers() {
@@ -91,7 +144,13 @@ class BinanceService {
       // console.warn('Bybit API Fallback Error:', bybitErr.message);
     }
 
-    // 3. Smart fallback simulated data if all networks are fully offline
+    // 3. Fallback to CoinGecko API
+    const geckoList = await this.getCoinGeckoPrices();
+    if (geckoList && geckoList.length > 0) {
+      return geckoList;
+    }
+
+    // 4. Smart fallback simulated data if all networks are fully offline
     return POPULAR_PAIRS.map((symbol, idx) => {
       const basePrices = {
         BTCUSDT: 77250, ETHUSDT: 3850, SOLUSDT: 185, BNBUSDT: 620,
