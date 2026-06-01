@@ -37,7 +37,21 @@ export const AppProvider = ({ children }) => {
   const [strategies, setStrategies] = useState([]);
   const [trades, setTrades] = useState([]);
   const [missions, setMissions] = useState([]);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('rafi_trading_settings');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (settings) {
+      localStorage.setItem('rafi_trading_settings', JSON.stringify(settings));
+    }
+  }, [settings]);
+
   const [evalData, setEvalData] = useState(null);
   const [scannerResults, setScannerResults] = useState([]);
   
@@ -635,6 +649,13 @@ export const AppProvider = ({ children }) => {
       const data = await _fetch('/settings');
       setSettings(data);
     } catch (err) {
+      try {
+        const saved = localStorage.getItem('rafi_trading_settings');
+        if (saved) {
+          setSettings(JSON.parse(saved));
+          return;
+        }
+      } catch (e) {}
       setSettings({
         telegramToken: '',
         telegramChatId: '',

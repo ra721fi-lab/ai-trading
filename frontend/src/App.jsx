@@ -2120,6 +2120,15 @@ function SettingsTab() {
   const [discordWebhook, setDiscordWebhook] = useState(settings?.discordWebhook || '');
   const [message, setMessage] = useState(null);
 
+  // Sync inputs with settings whenever they are loaded or updated
+  useEffect(() => {
+    if (settings) {
+      setTelegramToken(settings.telegramToken || '');
+      setTelegramChatId(settings.telegramChatId || '');
+      setDiscordWebhook(settings.discordWebhook || '');
+    }
+  }, [settings]);
+
   const handleSave = async (e) => {
     e.preventDefault();
     try {
