@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AppProvider, AppContext } from './context/AppContext';
 import { 
   TrendingUp, Activity, Terminal, BookOpen, BarChart3, Settings, 
@@ -429,8 +430,8 @@ function TradingViewChart({ symbol }) {
       {/* ==========================================
           FULLSCREEN OVERLAY MAXIMIZED MODAL PORTAL
           ========================================== */}
-      {isMaximized && (
-        <div className="fixed inset-0 w-screen h-screen bg-slate-950/95 backdrop-blur-md z-50 p-6 flex flex-col justify-between">
+      {isMaximized && createPortal(
+        <div className="fixed inset-0 w-screen h-screen bg-slate-950/95 backdrop-blur-md z-[9999] p-6 flex flex-col justify-between text-slate-100">
           {/* Maximize Header */}
           <div className="flex items-center justify-between border-b border-cyan-500/10 pb-4 mb-4">
             <div className="flex items-center gap-3">
@@ -560,7 +561,8 @@ function TradingViewChart({ symbol }) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
