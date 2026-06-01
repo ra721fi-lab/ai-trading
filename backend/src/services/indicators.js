@@ -339,6 +339,111 @@ class IndicatorsEngine {
   }
 
   /**
+   * Detect Advanced Trend directly from Chart Structure, RSI trend & divergences, and EMA trend line crossover weights
+   */
+  detectAdvancedTrend(candles, rsi, ema13, ema21, emaShort, emaLong, ema200) {
+    const count = candles.length;
+    const lastPrice = candles[count - 1].close;
+    
+    // 1. Chart Price Structure (HH/HL vs LH/LL)
+    let priceStructure = 'SIDEWAYS';
+    const recentCandles = candles.slice(-15);
+    const highs = recentCandles.map(c => c.high);
+    const lows = recentCandles.map(c => c.low);
+    
+    // Find local highs and lows
+    const localHigh1 = Math.max(...highs.slice(0, 7));
+    const localHigh2 = Math.max(...highs.slice(7));
+    const localLow1 = Math.min(...lows.slice(0, 7));
+    const localLow2 = Math.min(...lows.slice(7));
+    
+    if (localHigh2 > localHigh1 && localLow2 > localLow1) {
+      priceStructure = 'BULLISH_HH_HL'; // Higher High & Higher Low
+    } else if (localHigh2 < localHigh1 && localLow2 < localLow1) {
+      priceStructure = 'BEARISH_LH_LL'; // Lower High & Lower Low
+    }
+
+    // 2. RSI Trend & Divergences
+    let rsiTrend = 'NEUTRAL';
+    const lastRsi = rsi[count - 1];
+    const prevRsi = rsi[count - 2];
+    const prevRsi2 = rsi[count - 3];
+    
+    if (lastRsi > 50 && lastRsi > prevRsi && prevRsi > prevRsi2) {
+      rsiTrend = 'STRONG_BULLISH';
+    } else if (lastRsi > 50) {
+      rsiTrend = 'BULLISH';
+    } else if (lastRsi < 50 && lastRsi < prevRsi && prevRsi < prevRsi2) {
+      rsiTrend = 'STRONG_BEARISH';
+    } else if (lastRsi < 50) {
+      rsiTrend = 'BEARISH';
+    }
+
+    // RSI Divergence Detection
+    let rsiDivergence = 'NONE';
+    const lastCandleLow = candles[count - 1].low;
+    const prevCandleLow = candles[count - 5].low;
+    const lastCandleHigh = candles[count - 1].high;
+    const prevCandleHigh = candles[count - 5].high;
+
+    const lastCandleRsi = rsi[count - 1];
+    const prevCandleRsi = rsi[count - 5];
+
+    if (lastCandleLow < prevCandleLow && lastCandleRsi > prevCandleRsi) {
+      rsiDivergence = 'BULLISH_DIVERGENCE'; // Price lower low, RSI higher low
+    } else if (lastCandleHigh > prevCandleHigh && lastCandleRsi < prevCandleRsi) {
+      rsiDivergence = 'BEARISH_DIVERGENCE'; // Price higher high, RSI lower high
+    }
+
+    // 3. EMA Trend Line Crossover Strength
+    let emaScore = 0; // -100 to +100
+    
+    const lastEma13 = ema13[count - 1];
+    const lastEma21 = ema21[count - 1];
+    const lastEmaShort = emaShort[count - 1]; // EMA 20
+    const lastEmaLong = emaLong[count - 1];   // EMA 50
+    const lastEma200 = ema200[count - 1] || lastPrice;
+
+    // Short-term: EMA 13 > 21
+    if (lastEma13 > lastEma21) emaScore += 30;
+    else emaScore -= 30;
+
+    // Medium-term: EMA 20 > 50
+    if (lastEmaShort > lastEmaLong) emaScore += 30;
+    else emaScore -= 30;
+
+    // Long-term: Price > EMA 200
+    if (lastPrice > lastEma200) emaScore += 40;
+    else emaScore -= 40;
+
+    let emaStrength = 'SIDEWAYS';
+    if (emaScore >= 70) emaStrength = 'STRONG_BULLISH';
+    else if (emaScore >= 30) emaStrength = 'BULLISH';
+    else if (emaScore <= -70) emaStrength = 'STRONG_BEARISH';
+    else if (emaScore <= -30) emaStrength = 'BEARISH';
+
+    // 4. Combined AI Trend Conclusion
+    let finalTrend = 'NEUTRAL';
+    let trendStrengthPercent = Math.abs(emaScore);
+    
+    if (emaScore > 0 && lastRsi > 45) {
+      finalTrend = 'BULLISH';
+    } else if (emaScore < 0 && lastRsi < 55) {
+      finalTrend = 'BEARISH';
+    }
+
+    return {
+      priceStructure,
+      rsiTrend,
+      rsiDivergence,
+      emaScore,
+      emaStrength,
+      finalTrend,
+      trendStrengthPercent
+    };
+  }
+
+  /**
    * Run full indicator suite on candles array with advanced indicators and SMC concepts
    */
   analyze(candles, scanParams) {
@@ -430,6 +535,9 @@ class IndicatorsEngine {
     const atrVal = atr[count - 1] || lastPrice * 0.01;
     const liquidationHeatmap = this.calculateLiquidationHeatmap(lastPrice, atrVal);
 
+    // 6. Advanced Trend & Momentum analysis (Chart, RSI, EMA weightings)
+    const advancedTrend = this.detectAdvancedTrend(candles, rsi, ema13, ema21, emaShort, emaLong, ema200);
+
     return {
       price: lastPrice,
       indicators: {
@@ -459,7 +567,8 @@ class IndicatorsEngine {
         resistance: Math.round(currentResistance * 100) / 100,
         atr: Math.round(atrVal * 100) / 100,
         vwap: Math.round((vwap[count - 1] || lastPrice) * 100) / 100,
-        liquidationHeatmap
+        liquidationHeatmap,
+        advancedTrend
       },
       signals: {
         emaBullishCross: isEmaCrossover,
@@ -476,7 +585,14 @@ class IndicatorsEngine {
         breakerBlock: smcBlocks.breaker,
         mitigationBlock: smcBlocks.mitigation,
         marketStructureBreak: smcBlocks.bos,
-        marketStructureChange: smcBlocks.choch
+        marketStructureChange: smcBlocks.choch,
+        // Advanced signals
+        rsiDivergence: advancedTrend.rsiDivergence,
+        priceStructure: advancedTrend.priceStructure,
+        emaScore: advancedTrend.emaScore,
+        emaStrength: advancedTrend.emaStrength,
+        finalTrend: advancedTrend.finalTrend,
+        trendStrengthPercent: advancedTrend.trendStrengthPercent
       }
     };
   }

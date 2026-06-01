@@ -213,6 +213,33 @@ class AIEngine {
       const tags = [];
       let confidenceScore = 50; // base score
 
+      // 1. Chart Price Structure Trend Analysis
+      if (sig.priceStructure === 'BULLISH_HH_HL') {
+        tags.push('Chart HH/HL Bullish');
+        confidenceScore += 15;
+      } else if (sig.priceStructure === 'BEARISH_LH_LL') {
+        tags.push('Chart LH/LL Bearish');
+        confidenceScore -= 15;
+      }
+
+      // 2. Advanced RSI Trend & Divergences
+      if (sig.rsiDivergence === 'BULLISH_DIVERGENCE') {
+        tags.push('RSI Bullish Divergence');
+        confidenceScore += 25;
+      } else if (sig.rsiDivergence === 'BEARISH_DIVERGENCE') {
+        tags.push('RSI Bearish Divergence');
+        confidenceScore -= 25;
+      }
+
+      // 3. Multi-TF EMA Trend Line Strength
+      if (sig.emaStrength === 'STRONG_BULLISH') {
+        tags.push('EMA Strong Bullish');
+        confidenceScore += 15;
+      } else if (sig.emaStrength === 'STRONG_BEARISH') {
+        tags.push('EMA Strong Bearish');
+        confidenceScore -= 15;
+      }
+
       // Check for volume spikes
       if (sig.volumeSurge) {
         tags.push('Volume Naik');
@@ -282,7 +309,6 @@ class AIEngine {
       }
 
       // Limit confidence score to standard limits
-      // Limit confidence score to standard limits
       confidenceScore = Math.max(10, Math.min(99, confidenceScore));
 
       const action = confidenceScore > 65 ? 'BUY' : (confidenceScore < 40 ? 'SELL' : 'HOLD');
@@ -317,6 +343,9 @@ class AIEngine {
       const reasons = [];
       if (sig.emaBullishCross) reasons.push("Golden Cross EMA 20/50 terdeteksi");
       if (sig.macdBullishCross) reasons.push("MACD Bullish Cross terkonfirmasi");
+      if (sig.priceStructure === 'BULLISH_HH_HL') reasons.push("Struktur Chart Bullish (Higher High & Higher Low) terkonfirmasi");
+      if (sig.rsiDivergence === 'BULLISH_DIVERGENCE') reasons.push("Divergensi Bullish RSI kuat terdeteksi (Harga membuat Low baru, namun RSI menguat)");
+      if (sig.emaStrength === 'STRONG_BULLISH') reasons.push("EMA Trend Line Multi-TF terkonfirmasi Bullish kuat (Price > EMA 200, EMA 13 > 21)");
       if (sig.rsiOversold) reasons.push("RSI Oversold jenuh jual");
       if (sig.volumeSurge) reasons.push("Volume spike lebih dari 2x rata-rata");
       if (sig.fvg && sig.fvg !== 'NONE') reasons.push(`Terdeteksi ${sig.fvg === 'BULLISH_FVG' ? 'Bullish FVG' : 'Bearish FVG'}`);
@@ -332,6 +361,9 @@ class AIEngine {
       // Compile Risks (Potensi Risiko)
       const risks = [];
       if (sig.rsiOverbought) risks.push("RSI Overbought (jenuh beli)");
+      if (sig.priceStructure === 'BEARISH_LH_LL') risks.push("Struktur Chart menunjukkan trend turun (Lower High & Lower Low)");
+      if (sig.rsiDivergence === 'BEARISH_DIVERGENCE') risks.push("Divergensi Bearish RSI kuat terdeteksi (Indikasi jenuh beli)");
+      if (sig.emaStrength === 'STRONG_BEARISH') risks.push("EMA Trend Line Multi-TF terkonfirmasi Bearish kuat (Price < EMA 200)");
       if (currentPrice > ind.resistance * 0.99) risks.push("Harga mendekati major resistance");
       if (currentPrice < ind.support * 1.01) risks.push("Harga mendekati major support");
       if (sig.stochRsiK > 80) risks.push("Stochastic RSI Overbought");
