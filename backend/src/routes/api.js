@@ -153,29 +153,33 @@ router.get('/trades', authenticateToken, async (req, res) => {
 // Place Paper Trade / Create Manual Log
 router.post('/trades', authenticateToken, async (req, res) => {
   try {
-    const { pair, type, entryPrice, amount, reason, emotion, notes, isPaperTrading } = req.body;
+    const { pair, type, entryPrice, amount, reason, emotion, notes, isPaperTrading, leverage, chartScreenshot } = req.body;
 
     const user = await User.findByPk(req.userId);
     if (!user) return res.status(404).json({ error: 'User tidak ditemukan.' });
 
-    // If virtual paper trade, check balance
+    const leverageVal = parseInt(leverage) || 1;
+    const entryPriceVal = parseFloat(entryPrice) || 0;
+    const amountVal = parseFloat(amount) || 0;
+
+    // If virtual paper trade, check balance (use leverage-adjusted margin cost)
     if (isPaperTrading) {
-      const requiredBalance = entryPrice * amount;
-      if (type === 'BUY' && user.balance < requiredBalance) {
-        return res.status(400).json({ error: 'Virtual balance tidak mencukupi untuk melakukan paper trade.' });
+      const requiredMargin = (entryPriceVal * amountVal) / leverageVal;
+      if (user.balance < requiredMargin) {
+        return res.status(400).json({ error: 'Virtual balance tidak mencukupi untuk margin posisi ini.' });
       }
       
-      if (type === 'BUY') {
-        user.balance -= requiredBalance;
-        await user.save();
-      }
+      user.balance -= requiredMargin;
+      await user.save();
     }
 
     const trade = await Trade.create({
       pair,
       type,
-      entryPrice,
-      amount,
+      entryPrice: entryPriceVal,
+      amount: amountVal,
+      leverage: leverageVal,
+      chartScreenshot,
       reason,
       emotion: emotion || 'Calm',
       notes,
@@ -201,16 +205,20 @@ router.put('/trades/close/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Transaksi sudah berstatus CLOSED.' });
     }
 
+    const exitPriceVal = parseFloat(exitPrice) || 0;
+
     // Calculate PnL
     let profitLoss = 0.0;
-    if (trade.type === 'BUY') {
-      profitLoss = (exitPrice - trade.entryPrice) * trade.amount;
-    } else {
-      // SHORT Sell exit
-      profitLoss = (trade.entryPrice - exitPrice) * trade.amount;
+    if (trade.entryPrice && trade.amount) {
+      if (trade.type === 'BUY') {
+        profitLoss = (exitPriceVal - trade.entryPrice) * trade.amount;
+      } else {
+        // SHORT Sell exit
+        profitLoss = (trade.entryPrice - exitPriceVal) * trade.amount;
+      }
     }
 
-    trade.exitPrice = exitPrice;
+    trade.exitPrice = exitPriceVal;
     trade.exitReason = exitReason;
     trade.emotion = emotion || trade.emotion;
     trade.mistakes = typeof mistakes === 'string' ? mistakes : JSON.stringify(mistakes || []);
@@ -219,16 +227,12 @@ router.put('/trades/close/:id', authenticateToken, async (req, res) => {
     trade.status = 'CLOSED';
     await trade.save();
 
-    // If Paper Trade, return cash to user balance
+    // If Paper Trade, return margin + profitLoss to user balance
     const user = await User.findByPk(req.userId);
     if (user) {
-      if (trade.type === 'BUY') {
-        // Return cost value + profit/loss
-        const costValue = trade.entryPrice * trade.amount;
-        user.balance += (costValue + profitLoss);
-      } else {
-        // Short Sell settles: return profit/loss to balance
-        user.balance += profitLoss;
+      if (trade.entryPrice && trade.amount) {
+        const margin = (trade.entryPrice * trade.amount) / (trade.leverage || 1);
+        user.balance += (margin + profitLoss);
       }
       await user.save();
     }

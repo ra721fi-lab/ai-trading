@@ -1684,6 +1684,20 @@ function TradingJournal() {
   const [reason, setReason] = useState('');
   const [emotion, setEmotion] = useState('Calm');
   const [notes, setNotes] = useState('');
+  const [leverage, setLeverage] = useState(1);
+  const [logMode, setLogMode] = useState('manual');
+  const [chartScreenshot, setChartScreenshot] = useState('');
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setChartScreenshot(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Prefill from Live Ticker when Pair changes
   useEffect(() => {
@@ -1768,9 +1782,11 @@ function TradingJournal() {
       await openTrade({
         pair,
         type,
-        entryPrice: parseFloat(entryPrice),
-        amount: parseFloat(amount),
-        reason,
+        entryPrice: logMode === 'photo' ? null : parseFloat(entryPrice),
+        amount: logMode === 'photo' ? null : parseFloat(amount),
+        leverage: logMode === 'photo' ? 1 : parseInt(leverage),
+        chartScreenshot: logMode === 'photo' ? chartScreenshot : null,
+        reason: logMode === 'photo' ? 'Catatan Foto Hasil Trading' : reason,
         emotion,
         notes
       });
@@ -1779,6 +1795,7 @@ function TradingJournal() {
       setAmount('');
       setReason('');
       setNotes('');
+      setChartScreenshot('');
     } catch (err) {
       alert('Gagal mencatat trade');
     }
@@ -1917,6 +1934,28 @@ function TradingJournal() {
           </h2>
 
           <form onSubmit={handleOpen} className="space-y-4">
+            {/* Mode Switcher */}
+            <div className="flex bg-slate-950/80 p-1 border border-cyan-500/10 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setLogMode('manual')}
+                className={`flex-1 py-1.5 rounded-md text-[10px] font-tech font-bold uppercase transition-all cursor-pointer ${
+                  logMode === 'manual' ? 'bg-cyan-500/15 text-cyan-300' : 'text-cyan-300/40'
+                }`}
+              >
+                Detail Manual
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogMode('photo')}
+                className={`flex-1 py-1.5 rounded-md text-[10px] font-tech font-bold uppercase transition-all cursor-pointer ${
+                  logMode === 'photo' ? 'bg-cyan-500/15 text-cyan-300' : 'text-cyan-300/40'
+                }`}
+              >
+                Foto Saja
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Token Pair</label>
@@ -1946,33 +1985,85 @@ function TradingJournal() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Entry Price ($)</label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  required
-                  placeholder="e.g. 67450"
-                  value={entryPrice}
-                  onChange={(e) => setEntryPrice(e.target.value)}
-                  className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
-                />
-              </div>
+            {logMode === 'manual' ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Entry Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      placeholder="e.g. 67450"
+                      value={entryPrice}
+                      onChange={(e) => setEntryPrice(e.target.value)}
+                      className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Amount (Qty)</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Amount (Qty)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      placeholder="e.g. 0.05"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Leverage</label>
+                  <select
+                    value={leverage}
+                    onChange={(e) => setLeverage(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-tech font-bold"
+                  >
+                    {[1, 2, 5, 10, 20, 50, 100].map(l => (
+                      <option key={l} value={l}>{l}x</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Entry Reason Description</label>
+                  <textarea
+                    required
+                    rows="2"
+                    placeholder="RSI oversold & breakout EMA 20 regional support..."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Unggah Foto Setup/Hasil</label>
                 <input
-                  type="number"
-                  step="0.0001"
-                  required
-                  placeholder="e.g. 0.05"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
+                  type="file"
+                  accept="image/*"
+                  required={!chartScreenshot}
+                  onChange={handlePhotoChange}
+                  className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-tech file:bg-cyan-500/10 file:border-0 file:text-cyan-300 file:text-[10px] file:font-bold file:uppercase file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer"
                 />
+                {chartScreenshot && (
+                  <div className="relative mt-2 rounded border border-cyan-500/25 overflow-hidden bg-slate-950">
+                    <img src={chartScreenshot} alt="Preview" className="max-h-32 w-full object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => setChartScreenshot('')}
+                      className="absolute top-1 right-1 bg-rose-500/80 hover:bg-rose-600 text-white rounded-full p-1 text-[8px] cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Primary Emotion</label>
@@ -1990,18 +2081,6 @@ function TradingJournal() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-tech text-cyan-300 uppercase tracking-widest">Entry Reason Description</label>
-              <textarea
-                required
-                rows="2"
-                placeholder="RSI oversold & breakout EMA 20 regional support..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 placeholder-slate-700 focus:outline-none focus:border-cyan-400 font-tech"
-              />
             </div>
 
             <button
@@ -2028,49 +2107,135 @@ function TradingJournal() {
             ) : (
               trades.map((t) => {
                 const isOpen = t.status === 'OPEN';
-                const isWin = t.profitLoss > 0;
+                
+                // Calculate PnL & ROE in real-time
+                let livePnL = 0;
+                let liveRoe = 0;
+                let currentPrice = t.entryPrice || 0;
+                
+                if (isOpen && t.entryPrice && t.amount) {
+                  const liveTicker = tickers.find(tick => tick.symbol === t.pair);
+                  if (liveTicker) {
+                    currentPrice = liveTicker.price;
+                    if (t.type === 'BUY') {
+                      livePnL = (currentPrice - t.entryPrice) * t.amount;
+                    } else {
+                      livePnL = (t.entryPrice - currentPrice) * t.amount;
+                    }
+                    const margin = (t.entryPrice * t.amount) / (t.leverage || 1);
+                    liveRoe = margin > 0 ? (livePnL / margin) * 100 : 0;
+                  }
+                }
+                
+                const isWin = isOpen ? livePnL >= 0 : t.profitLoss >= 0;
+                const displayPnL = isOpen ? livePnL : t.profitLoss;
+
                 return (
                   <div key={t.id} className="p-5 rounded-xl bg-slate-950/60 border border-purple-500/10 space-y-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-tech font-bold uppercase tracking-wider ${
-                          t.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {t.type} {t.pair}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-tech font-bold uppercase tracking-wider ${
+                            t.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          }`}>
+                            {t.type} {t.pair}
+                          </span>
+                          {!t.entryPrice && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-tech font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              📷 FOTO LOG
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-cyan-300/40 font-tech mt-1">{new Date(t.createdAt).toLocaleString()}</p>
                       </div>
 
                       <div className="text-right">
                         {isOpen ? (
-                          <button
-                            onClick={() => setClosingId(t.id)}
-                            className="px-3.5 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 rounded text-xs font-tech font-bold uppercase cursor-pointer"
-                          >
-                            Close Position
-                          </button>
+                          t.entryPrice ? (
+                            <div className="flex flex-col items-end">
+                              <span className={`text-xs font-tech font-bold ${isWin ? 'text-emerald-400 glow-green' : 'text-rose-400 glow-red'} animate-pulse`}>
+                                {isWin ? '+' : ''}${displayPnL.toFixed(2)} ({isWin ? '+' : ''}{liveRoe.toFixed(2)}%)
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setClosingId(t.id);
+                                  setExitPrice(currentPrice.toString());
+                                }}
+                                className="mt-1 px-2.5 py-1 bg-cyan-500/25 hover:bg-cyan-500/35 border border-cyan-500/40 hover:border-cyan-300 text-cyan-300 rounded text-[9px] font-tech font-bold uppercase cursor-pointer transition-all"
+                              >
+                                Close Position
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setClosingId(t.id);
+                                setExitPrice('0');
+                              }}
+                              className="px-2.5 py-1 bg-cyan-500/25 hover:bg-cyan-500/35 border border-cyan-500/40 text-cyan-300 rounded text-[9px] font-tech font-bold uppercase cursor-pointer transition-all"
+                            >
+                              Selesaikan Log
+                            </button>
+                          )
                         ) : (
-                          <span className={`text-md font-tech font-bold ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {isWin ? '+' : ''}${t.profitLoss?.toFixed(2)}
-                          </span>
+                          t.entryPrice ? (
+                            <span className={`text-md font-tech font-bold ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {isWin ? '+' : ''}${t.profitLoss?.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-tech font-bold text-slate-400 uppercase tracking-widest">
+                              CLOSED LOG
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-xs font-tech border-t border-cyan-500/5 pt-3">
-                      <div>
-                        <span className="text-cyan-300/30">Entry Price:</span>
-                        <p className="text-slate-200 mt-0.5">${t.entryPrice}</p>
-                      </div>
-                      <div>
-                        <span className="text-cyan-300/30">Exit Price:</span>
-                        <p className="text-slate-200 mt-0.5">{isOpen ? 'Active' : `$${t.exitPrice}`}</p>
-                      </div>
-                      <div className="col-span-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-tech border-t border-cyan-500/5 pt-3">
+                      {t.entryPrice ? (
+                        <>
+                          <div>
+                            <span className="text-cyan-300/30">Entry Price:</span>
+                            <p className="text-slate-200 mt-0.5">${t.entryPrice}</p>
+                          </div>
+                          <div>
+                            <span className="text-cyan-300/30">{isOpen ? 'Live Price:' : 'Exit Price:'}</span>
+                            <p className="text-slate-200 mt-0.5">${isOpen ? currentPrice.toFixed(2) : t.exitPrice}</p>
+                          </div>
+                          <div>
+                            <span className="text-cyan-300/30">Leverage:</span>
+                            <p className="text-slate-200 mt-0.5">{t.leverage || 1}x</p>
+                          </div>
+                          <div>
+                            <span className="text-cyan-300/30">Margin Used:</span>
+                            <p className="text-slate-200 mt-0.5">${((t.entryPrice * t.amount) / (t.leverage || 1)).toFixed(2)}</p>
+                          </div>
+                        </>
+                      ) : null}
+
+                      <div className="col-span-2 sm:col-span-4">
                         <span className="text-cyan-300/30">Entry Reason:</span>
                         <p className="text-slate-300 mt-0.5 font-light">{t.reason}</p>
                       </div>
-                      <div className="col-span-2 flex justify-between items-center border-t border-cyan-500/5 pt-3 text-[10px]">
+
+                      {t.chartScreenshot && (
+                        <div className="col-span-2 sm:col-span-4 pt-1">
+                          <span className="text-cyan-300/30 block mb-1">Bukti Foto / Setup:</span>
+                          <img 
+                            src={t.chartScreenshot} 
+                            alt="Trade Screenshot" 
+                            className="max-h-64 w-full object-contain rounded-lg border border-cyan-500/10 bg-slate-950/40 cursor-zoom-in hover:border-cyan-400/40 transition-all"
+                            onClick={() => {
+                              const image = new Image();
+                              image.src = t.chartScreenshot;
+                              const w = window.open("");
+                              w.document.write(image.outerHTML);
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="col-span-2 sm:col-span-4 flex justify-between items-center border-t border-cyan-500/5 pt-3 text-[10px]">
                         <span className="px-2 py-0.5 bg-slate-900 border border-cyan-500/10 text-cyan-300 rounded font-bold uppercase">Emotion: {t.emotion}</span>
                         <button onClick={() => deleteTrade(t.id)} className="text-rose-500/60 hover:text-rose-400 cursor-pointer uppercase">Delete Entry</button>
                       </div>
@@ -2360,6 +2525,7 @@ function PaperTradingTerminal() {
   const [paperSymbol, setPaperSymbol] = useState('BTCUSDT');
   const [paperType, setPaperType] = useState('BUY');
   const [paperAmount, setPaperAmount] = useState('');
+  const [paperLeverage, setPaperLeverage] = useState(20);
   const [paperMessage, setPaperMessage] = useState(null);
 
   const handleBacktest = async (e) => {
@@ -2393,6 +2559,7 @@ function PaperTradingTerminal() {
         type: paperType,
         entryPrice: activeTicker.price,
         amount: parseFloat(paperAmount),
+        leverage: parseInt(paperLeverage),
         reason: 'Sinyal Paper Trading Terminal Live',
         emotion: 'Calm',
         notes: 'Order live paper trading risk-free'
@@ -2448,24 +2615,47 @@ function PaperTradingTerminal() {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-tech text-cyan-300 uppercase">Order Quantity</label>
-            <input
-              type="number"
-              step="0.001"
-              required
-              placeholder="e.g. 0.05 Qty"
-              value={paperAmount}
-              onChange={(e) => setPaperAmount(e.target.value)}
-              className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-tech text-cyan-300 uppercase">Order Quantity</label>
+              <input
+                type="number"
+                step="0.001"
+                required
+                placeholder="e.g. 0.05 Qty"
+                value={paperAmount}
+                onChange={(e) => setPaperAmount(e.target.value)}
+                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-tech"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-tech text-cyan-300 uppercase">Leverage</label>
+              <select
+                value={paperLeverage}
+                onChange={(e) => setPaperLeverage(e.target.value)}
+                className="w-full bg-slate-950 border border-cyan-500/20 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-tech font-bold"
+              >
+                {[1, 2, 5, 10, 20, 50, 100, 125].map(l => (
+                  <option key={l} value={l}>{l}x</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="p-3 bg-slate-950 border border-cyan-500/10 rounded-lg text-xs font-tech">
-            <span className="text-cyan-300/30 uppercase">Est. Cost:</span>
-            <p className="text-slate-100 font-bold mt-0.5">
-              ${((tickers.find(t => t.symbol === paperSymbol)?.price || 0) * (parseFloat(paperAmount) || 0))?.toFixed(2)}
-            </p>
+          <div className="p-3 bg-slate-950 border border-cyan-500/10 rounded-lg text-xs font-tech flex justify-between">
+            <div>
+              <span className="text-cyan-300/30 uppercase">Required Margin:</span>
+              <p className="text-slate-100 font-bold mt-0.5">
+                ${(((tickers.find(t => t.symbol === paperSymbol)?.price || 0) * (parseFloat(paperAmount) || 0)) / paperLeverage)?.toFixed(2)}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-cyan-300/30 uppercase">Position Value:</span>
+              <p className="text-cyan-400 font-bold mt-0.5">
+                ${((tickers.find(t => t.symbol === paperSymbol)?.price || 0) * (parseFloat(paperAmount) || 0))?.toFixed(2)}
+              </p>
+            </div>
           </div>
 
           <button

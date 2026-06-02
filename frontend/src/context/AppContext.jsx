@@ -474,9 +474,9 @@ export const AppProvider = ({ children }) => {
         };
         setTrades(prev => [newTrade, ...prev]);
         
-        // deduct local balance
+        // deduct local balance based on leverage margin
         if (user) {
-          const cost = tradeData.entryPrice * tradeData.amount;
+          const cost = ((tradeData.entryPrice || 0) * (tradeData.amount || 0)) / (tradeData.leverage || 1);
           setUser(prev => ({ ...prev, balance: prev.balance - cost }));
         }
         return newTrade;
@@ -504,10 +504,12 @@ export const AppProvider = ({ children }) => {
         if (!target) return;
         
         let pnl = 0.0;
-        if (target.type === 'BUY') {
-          pnl = (closeData.exitPrice - target.entryPrice) * target.amount;
-        } else {
-          pnl = (target.entryPrice - closeData.exitPrice) * target.amount;
+        if (target.entryPrice && target.amount) {
+          if (target.type === 'BUY') {
+            pnl = (closeData.exitPrice - target.entryPrice) * target.amount;
+          } else {
+            pnl = (target.entryPrice - closeData.exitPrice) * target.amount;
+          }
         }
 
         const closedTrade = {
@@ -520,13 +522,15 @@ export const AppProvider = ({ children }) => {
 
         setTrades(prev => prev.map(t => t.id === id ? closedTrade : t));
         
-        // settle local balance
+        // settle local balance: return margin + PnL
         if (user) {
-          const cost = target.entryPrice * target.amount;
-          setUser(prev => ({
-            ...prev,
-            balance: target.type === 'BUY' ? (prev.balance + cost + pnl) : (prev.balance + pnl)
-          }));
+          if (target.entryPrice && target.amount) {
+            const margin = (target.entryPrice * target.amount) / (target.leverage || 1);
+            setUser(prev => ({
+              ...prev,
+              balance: prev.balance + margin + pnl
+            }));
+          }
         }
 
         // Trigger local re-eval

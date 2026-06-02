@@ -48,7 +48,7 @@ const Trade = sequelize.define('Trade', {
   },
   entryPrice: {
     type: DataTypes.FLOAT,
-    allowNull: false
+    allowNull: true
   },
   exitPrice: {
     type: DataTypes.FLOAT,
@@ -56,7 +56,11 @@ const Trade = sequelize.define('Trade', {
   },
   amount: {
     type: DataTypes.FLOAT,
-    allowNull: false
+    allowNull: true
+  },
+  leverage: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1
   },
   profitLoss: {
     type: DataTypes.FLOAT,
