@@ -27,3 +27,6 @@ backend/trading_tools.sqlite
 dist/
 build/
 out/
+
+# Deploy configuration
+deploy_tmp/
